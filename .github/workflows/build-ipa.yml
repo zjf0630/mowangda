@@ -1,0 +1,88 @@
+name: Build unsigned IPA
+
+# 触发方式：网页上手动点 Run workflow，或向 main/master 推送代码自动跑
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 环境信息
+        run: |
+          sw_vers
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: 安装 XcodeGen
+        run: brew install xcodegen
+
+      - name: 准备 App 图标
+        run: |
+          set -e
+          ICON_DIR="Resources/Assets.xcassets/AppIcon.appiconset"
+          mkdir -p "$ICON_DIR"
+          if [ -f "AppIcon-1024.png" ]; then
+            cp "AppIcon-1024.png" "$ICON_DIR/AppIcon-1024.png"
+            echo "图标来自仓库根目录 AppIcon-1024.png"
+          elif [ -f "$ICON_DIR/AppIcon-1024.png" ]; then
+            echo "图标已在资源目录内"
+          else
+            echo "::warning::没有找到 AppIcon-1024.png，本次构建将使用系统默认图标"
+          fi
+          ls -la "$ICON_DIR"
+
+      - name: 生成 Xcode 工程
+        run: |
+          xcodegen generate
+          xcodebuild -list -project MoWangDa.xcodeproj
+
+      - name: 编译（不签名）
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project MoWangDa.xcodeproj \
+            -scheme MoWangDa \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build | tee build.log | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
+
+      - name: 编译失败时输出错误摘要
+        if: failure()
+        run: |
+          echo "===== 错误摘要 ====="
+          grep -E "error:" build.log | head -40 || true
+          echo "===== 日志尾部 ====="
+          tail -60 build.log || true
+
+      - name: 打包成 ipa
+        run: |
+          set -e
+          APP="build/Build/Products/Release-iphoneos/MoWangDa.app"
+          test -d "$APP"
+          rm -rf Payload MoWangDa.ipa
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry MoWangDa.ipa Payload
+          ls -lh MoWangDa.ipa
+          unzip -l MoWangDa.ipa | head -20
+
+      - name: 上传 ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoWangDa-unsigned-ipa
+          path: MoWangDa.ipa
+          if-no-files-found: error
+          retention-days: 30

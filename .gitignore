@@ -1,0 +1,7 @@
+build/
+DerivedData/
+*.xcuserstate
+.DS_Store
+*.log
+
+# 保留 AppIcon-1024.png 在根目录，编译时复制进资源目录
