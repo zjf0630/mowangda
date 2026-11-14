@@ -131,10 +131,13 @@ struct RootView: View {
                 }
             }
             if store.items.isEmpty {
-                VStack(spacing: 6).frame(height: 60)
-                Text("还没有事项\n点下面「＋ 记一条」，说一句就行")
-                    .font(.system(size: 12.5)).foregroundColor(Theme.faint)
-                    .multilineTextAlignment(.center).lineSpacing(6)
+                VStack(spacing: 6) {
+                    Text("还没有事项\n点下面「＋ 记一条」，说一句就行")
+                        .font(.system(size: 12.5)).foregroundColor(Theme.faint)
+                        .multilineTextAlignment(.center).lineSpacing(6)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 60)
             }
             Color.clear.frame(height: 110)
         }
