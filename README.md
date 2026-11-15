@@ -16,7 +16,7 @@
 ```
 project.yml                      XcodeGen 工程描述（云编译时用它生成 .xcodeproj）
 Info.plist                       权限说明：提醒事项 / 麦克风 / 语音识别
-Sources/                         8 个 Swift 源文件
+Sources/                         10 个 Swift 源文件
 Resources/Assets.xcassets/       App 图标
 .github/workflows/build-ipa.yml  GitHub Actions 云编译脚本
 ```
@@ -49,11 +49,15 @@ open MoWangDa.xcodeproj
 | Sources/RootView.swift | 主界面：分组时间轴 / 已完成折叠 / 批量选择删除 |
 | Sources/ComposeView.swift | 录入页：实时拆条 + 语音 + 写入 |
 | Sources/DetailView.swift | 详情页：标题/时间/提醒/列表/优先级/截止/备注 |
+| Sources/SettingsView.swift | 设置页：默认提前量 + 铃声/振动说明 |
+| Sources/Preferences.swift | 本地偏好（默认提前分钟数） |
 
 ## 与网页原型的差异
 
 - 写入提醒事项是真的：默认写入名为「工作」的列表，不存在会自动创建
-- 提醒真的会响：默认提前 15 分钟，由系统提醒事项推送，本 App 不申请通知权限
+- 提醒真的会响：默认提前 15 分钟（设置页可改成 0/5/15/30/60），由系统提醒事项推送，本 App 不申请通知权限
+- 界面跟随系统深浅色：色板全部是 `UIColor` 动态色，`Info.plist` 不锁定 `UIUserInterfaceStyle`
+- 左滑只有右侧：「完成」在左、「删除」在最右，关闭全滑避免误删；长按有同样菜单
 - 语音是本机识别：`requiresOnDeviceRecognition = true`，不联网不上传
 - 「截止」以备注前缀 `[截止]` 持久化（EventKit 没有该字段）
 - 未授权提醒事项时 App 仍可用，数据走本地缓存，详情页顶部有提示
@@ -61,9 +65,10 @@ open MoWangDa.xcodeproj
 ## 已验证与未验证
 
 - 已验证：中文时间解析规则（与网页原型同源，11 条用例全过）、界面布局、分组排序逻辑
-- 未验证：本工程尚未在真实 Xcode 中编译过（编写环境为 Windows）。首次云编译如报错，多为 API 签名细节，按日志改即可，不涉及架构调整
+- 已验证：GitHub Actions（macos-latest + Xcode 26.6）编译通过，产出可签名的 unsigned ipa
 
 ## 已知边界
 
 - 免费 Apple ID 签名 7 天过期，需重装续签；长期免续签可用 AltStore 或付费开发者账号
 - EventKit 无法原生存储「截止」语义，这是苹果数据模型的限制
+- **提醒铃声 / 振动 App 改不了**：`EKAlarm.soundName` 仅 macOS 可用，iOS 编译报 `'soundName' is unavailable in iOS`；振动次数更无接口。到点响不响、振几下由系统「提醒事项」决定，设置页里给了改法
