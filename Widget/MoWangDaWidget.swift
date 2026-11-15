@@ -1,9 +1,9 @@
 import WidgetKit
 import SwiftUI
 
-// 桌面小组件：显示当天最多 3 条提醒事项。
-// 数据来自主 App 通过 App Group 写入的快照（Shared/WidgetSnapshot.swift）。
-// 小组件本身不读提醒事项数据库——独立进程没有权限，也不该重复请求授权。
+// 桌面小组件：按时间顺序显示「接下来」最多 3 条提醒，不限定今天。
+// 数据来源优先直读系统提醒事项库（Widget/LiveReminders.swift），
+// 读不到时退回主 App 通过 App Group 写入的快照（Shared/WidgetSnapshot.swift）。
 
 struct SnapshotEntry: TimelineEntry {
     let date: Date
@@ -43,9 +43,9 @@ struct Provider: TimelineProvider {
     private static let sample = WidgetSnapshot(
         dateText: "11月15日 周日",
         items: [
-            WidgetItem(title: "上午项目周会", timeText: "09:30", priority: 2, repeatName: "工作日"),
-            WidgetItem(title: "回复客户邮件", timeText: "11:00", priority: 0, repeatName: nil),
-            WidgetItem(title: "下午 3 点评审", timeText: "15:00", priority: 3, repeatName: nil),
+            WidgetItem(title: "上午项目周会", timeText: "09:30", priority: 2, repeatName: "工作日", dayText: "逾期"),
+            WidgetItem(title: "回复客户邮件", timeText: "11:00", priority: 0, repeatName: nil, dayText: "今天"),
+            WidgetItem(title: "客户现场拜访", timeText: "09:00", priority: 3, repeatName: nil, dayText: "明天"),
         ],
         total: 5,
         updatedAt: .now
@@ -92,7 +92,10 @@ private extension Color {
 
 struct MoWidgetView: View {
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.widgetFamily) private var family
     let entry: SnapshotEntry
+
+    private var small: Bool { family == .systemSmall }
 
     var body: some View {
         let c = MoPalette.palette(scheme == .dark)
@@ -112,57 +115,77 @@ struct MoWidgetView: View {
     }
 
     private func content(_ snap: WidgetSnapshot, _ c: MoPalette) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 6) {
+        let maxRows = small ? 2 : 3
+        let shown = Array(snap.items.prefix(maxRows))
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 5) {
                 Image(systemName: "checklist")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(c.accent)
-                Text(snap.dateText)
-                    .font(.system(size: 10.5, weight: .medium))
-                    .foregroundColor(c.muted)
-                Spacer()
-                Text("今天 \(snap.total) 条")
-                    .font(.system(size: 10))
+                Text("接下来")
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .foregroundColor(c.ink)
+                Spacer(minLength: 4)
+                Text("共 \(snap.total) 条")
+                    .font(.system(size: 9.5))
                     .foregroundColor(c.muted)
             }
-            ForEach(snap.items.prefix(3), id: \.self) { item in
-                HStack(spacing: 7) {
-                    RoundedRectangle(cornerRadius: 1.5)
-                        .fill(c.priority(item.priority))
-                        .frame(width: 3, height: 26)
-                    Text(item.timeText)
-                        .font(.system(size: 10.5).monospacedDigit())
-                        .foregroundColor(c.muted)
-                        .frame(width: 34, alignment: .leading)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(item.title)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(c.ink)
-                            .lineLimit(1)
-                        if let r = item.repeatName {
-                            Text(r).font(.system(size: 9)).foregroundColor(c.muted)
-                        }
-                    }
-                    Spacer(minLength: 0)
-                }
+            ForEach(shown, id: \.self) { item in
+                row(item, c)
             }
-            if snap.total > snap.items.count {
-                Text("还有 \(snap.total - snap.items.count) 条，打开查看")
+            if !small && snap.total > shown.count {
+                Text("还有 \(snap.total - shown.count) 条，打开查看")
                     .font(.system(size: 9.5))
                     .foregroundColor(c.muted)
             }
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 1)
     }
 
-    // 读到了快照但今天确实没有安排
+    /// 一行：优先级竖条 + 日期/时间两行小字 + 标题（重复标记跟在标题后）
+    private func row(_ item: WidgetItem, _ c: MoPalette) -> some View {
+        HStack(spacing: 7) {
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(c.priority(item.priority))
+                .frame(width: 3, height: 24)
+
+            VStack(alignment: .leading, spacing: 0) {
+                if let d = item.dayText, !d.isEmpty {
+                    Text(d)
+                        .font(.system(size: 8.5, weight: .medium))
+                        .foregroundColor(d == "逾期" ? c.danger : c.accent)
+                }
+                Text(item.timeText)
+                    .font(.system(size: 10.5).monospacedDigit())
+                    .foregroundColor(c.muted)
+            }
+            .frame(width: 38, alignment: .leading)
+
+            HStack(spacing: 4) {
+                Text(item.title)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(c.ink)
+                    .lineLimit(1)
+                if let r = item.repeatName {
+                    Text(r)
+                        .font(.system(size: 8.5))
+                        .foregroundColor(c.muted)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(height: 28)
+    }
+
+    // 读到了数据但一条待办都没有
     private func empty(_ c: MoPalette) -> some View {
         VStack(spacing: 6) {
             Image(systemName: "checklist")
                 .font(.system(size: 18, weight: .medium))
                 .foregroundColor(c.accent.opacity(0.6))
-            Text("今天没有安排")
+            Text("还没有安排")
                 .font(.system(size: 11.5, weight: .medium))
                 .foregroundColor(c.ink)
             Text("打开莫忘哒记一条吧")
@@ -172,7 +195,7 @@ struct MoWidgetView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // 连快照都读不到：要么还没打开过 App，要么签名时 App Group 能力被去掉了
+    // 连数据都读不到：提醒事项权限没给到小组件，App 快照也没有
     private func noData(_ c: MoPalette) -> some View {
         VStack(spacing: 6) {
             Image(systemName: "arrow.triangle.2.circlepath")
@@ -195,7 +218,7 @@ struct MoWangDaWidget: Widget {
             MoWidgetView(entry: entry)
         }
         .configurationDisplayName("莫忘哒")
-        .description("显示今天的提醒事项（最多 3 条）")
+        .description("按时间顺序显示接下来的 3 条提醒（不限今天）")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
