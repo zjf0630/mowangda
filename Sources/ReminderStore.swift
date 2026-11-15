@@ -83,7 +83,7 @@ final class ReminderStore: ObservableObject {
     func add(_ p: ParsedItem) async {
         var item = TodoItem(id: UUID().uuidString, title: p.title, due: p.due, hasTime: p.hasTime,
                             deadline: p.deadline, listName: p.listName,
-                            remindMinutes: p.hasTime ? 15 : 0, note: "", priority: 0, done: false)
+                            remindMinutes: p.hasTime ? Prefs.leadMinutes : 0, note: "", priority: 0, done: false)
         if authorized, let cal = ensureCalendar() {
             let r = EKReminder(eventStore: store)
             r.title = item.title
@@ -150,29 +150,14 @@ final class ReminderStore: ObservableObject {
         }
     }
 
-    // MARK: - 提醒声音
+    // MARK: - 提醒
 
-    /// 提前 N 分钟的提醒。声音取全局偏好：
-    /// 默认 = nil（跟随系统）、静音 = ""（只弹通知）、短信 = 三全音。
+    /// 提前 N 分钟的提醒。
+    /// 注意：不要给 EKAlarm 设 soundName —— 那个属性只有 macOS 有，
+    /// iOS 上编译直接报 'soundName' is unavailable in iOS。
+    /// 到点用什么声音、振几下，由系统「提醒事项」自己决定。
     private func makeAlarm(_ minutes: Int) -> EKAlarm {
-        let alarm = EKAlarm(relativeOffset: TimeInterval(-minutes * 60))
-        alarm.soundName = AlarmTone.current.soundName
-        return alarm
-    }
-
-    /// 用户改了提醒声音后，把现有未完成条目的提醒声音就地刷新一遍，
-    /// 省得逐条打开详情页再保存一次。
-    func refreshAlarms() async {
-        guard authorized else { return }
-        var touched = false
-        for item in items where !item.done && item.remindMinutes > 0 {
-            guard let r = store.calendarItem(withIdentifier: item.id) as? EKReminder,
-                  r.alarms?.isEmpty == false else { continue }
-            r.alarms = [makeAlarm(item.remindMinutes)]
-            try? store.save(r, commit: false)
-            touched = true
-        }
-        if touched { try? store.commit() }
+        EKAlarm(relativeOffset: TimeInterval(-minutes * 60))
     }
 
     // MARK: - 列表

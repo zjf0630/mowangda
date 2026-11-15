@@ -21,7 +21,7 @@ struct RootView: View {
             bottomBar
         }
         .sheet(isPresented: $showCompose) { ComposeView(store: store) }
-        .sheet(isPresented: $showSettings) { SettingsView(store: store) }
+        .sheet(isPresented: $showSettings) { SettingsView() }
         .sheet(item: $detailItem) { item in
             DetailView(store: store, item: item)
         }
