@@ -106,7 +106,7 @@ struct DetailView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Circle()
-                            .fill(Theme.priority(priority) ?? Color(hex: 0xD8D5CD))
+                            .fill(Theme.priority(priority) ?? Theme.tick)
                             .frame(width: 8, height: 8)
                         Text(Theme.priorityName(priority))
                             .font(.system(size: 12.5, weight: .medium))
@@ -129,12 +129,12 @@ struct DetailView: View {
                 Toggle("", isOn: $deadline).labelsHidden().fixedSize()
             }
         }
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color.white)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Theme.card)
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.line, lineWidth: 1)))
         .padding(.horizontal, 20).padding(.top, 8)
     }
 
-    private var divider: some View { Rectangle().fill(Color(hex: 0xF3F1EC)).frame(height: 1) }
+    private var divider: some View { Rectangle().fill(Theme.line).frame(height: 1) }
 
     private func row<K: View>(_ key: String, @ViewBuilder value: () -> K) -> some View {
         HStack {
@@ -149,7 +149,7 @@ struct DetailView: View {
         TextField("备注…", text: $note, axis: .vertical)
             .font(.system(size: 12.5)).lineLimit(2...5)
             .padding(14)
-            .background(RoundedRectangle(cornerRadius: 16).fill(Color.white)
+            .background(RoundedRectangle(cornerRadius: 16).fill(Theme.card)
                 .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.line, lineWidth: 1)))
             .padding(.horizontal, 20).padding(.top, 10)
     }

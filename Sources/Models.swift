@@ -1,21 +1,31 @@
 import SwiftUI
+import UIKit
 
-/// 与网页原型一致的品牌色板
+/// 品牌色板。每一条都是「浅色 / 深色」成对的动态色，
+/// 由 UIColor 的 dynamic provider 在运行时按 userInterfaceStyle 取值，
+/// 所以切换系统深色模式时整站会自动换色，不需要在视图里到处判断。
 enum Theme {
-    static let bg = Color(red: 0.969, green: 0.965, blue: 0.953)      // F7F6F3
-    static let card = Color.white
-    static let ink = Color(red: 0.114, green: 0.114, blue: 0.122)     // 1D1D1F
-    static let ink2 = Color(red: 0.290, green: 0.290, blue: 0.306)    // 4A4A4E
-    static let muted = Color(red: 0.557, green: 0.557, blue: 0.576)   // 8E8E93
-    static let faint = Color(red: 0.706, green: 0.702, blue: 0.686)   // B4B2AB
-    static let line = Color(red: 0.914, green: 0.906, blue: 0.882)    // E9E7E1
-    static let accent = Color(red: 0.059, green: 0.431, blue: 0.337)  // 0F6E56
-    static let accentSoft = Color(red: 0.882, green: 0.961, blue: 0.933) // E1F5EE
-    static let amber = Color(red: 0.729, green: 0.459, blue: 0.090)   // BA7517
-    static let danger = Color(red: 0.639, green: 0.176, blue: 0.176)  // A32D2D
+    static let bg          = dyn(0xF7F6F3, 0x0F1211)   // 页面底
+    static let card        = dyn(0xFFFFFF, 0x1B1F1E)   // 卡片 / 输入框底
+    static let ink         = dyn(0x1D1D1F, 0xF2F3F1)   // 主文字
+    static let ink2        = dyn(0x4A4A4E, 0xBFC2BE)   // 次文字
+    static let muted       = dyn(0x8E8E93, 0x9A9E9B)   // 弱文字
+    static let faint       = dyn(0xB4B2AB, 0x6B706C)   // 更弱 / 已完成
+    static let line        = dyn(0xE9E7E1, 0x2A2F2C)   // 描边、分隔线
+    static let accent      = dyn(0x0F6E56, 0x46C79E)   // 品牌墨绿（深色下提亮）
+    static let accentSoft  = dyn(0xE1F5EE, 0x153A2F)   // 墨绿淡底
+    static let amber       = dyn(0xBA7517, 0xE3A94F)   // 琥珀 / 截止
+    static let danger      = dyn(0xA32D2D, 0xE2685F)   // 红 / 删除
+    static let tick        = dyn(0xD8D5CD, 0x4A504C)   // 未勾选圆圈
+    static let barNone     = dyn(0xDCD9D1, 0x3A403C)   // 无优先级左竖条
+    static let chip        = dyn(0xF1EFE9, 0x262B28)   // 灰色小胶囊
+    static let chipWarn    = dyn(0xFAEEDA, 0x3A2E17)   // 截止胶囊底
+    static let chipWarnInk = dyn(0x854F0B, 0xE3A94F)
+    static let disabled    = dyn(0xD9D6CE, 0x343A36)   // 禁用按钮
+    static let edge        = dyn(0xE0DDD5, 0x3A403C)
 
-    /// 优先级配色：3 高=红、2 中=琥珀、1 低=墨绿、0 无=nil（走白卡）
-    /// 都是低饱和的品牌色，卡片填充只取 0.10 透明度，靠"整片淡淡一层"区分，不抢文字
+    /// 优先级配色：3 高=红、2 中=琥珀、1 低=墨绿、0 无=nil（走普通卡）
+    /// 都是低饱和的品牌色，卡片填充只取一层很淡的透明度，靠"整片淡淡一层"区分，不抢文字。
     static func priority(_ p: Int) -> Color? {
         switch p {
         case 3: return danger
@@ -32,6 +42,33 @@ enum Theme {
         case 1: return "低"
         default: return "无"
         }
+    }
+
+    /// 整卡染色的填充/描边。深色模式下同一个颜色在深底上更"糊"，
+    /// 所以透明度要比浅色模式高一档，否则看起来像没上色。
+    static func priorityFill(_ p: Int, dark: Bool) -> Color {
+        guard let c = priority(p) else { return card }
+        return c.opacity(dark ? 0.22 : 0.11)
+    }
+
+    static func priorityStroke(_ p: Int, dark: Bool) -> Color {
+        guard let c = priority(p) else { return line }
+        return c.opacity(dark ? 0.45 : 0.30)
+    }
+}
+
+private func dyn(_ light: UInt, _ dark: UInt) -> Color {
+    Color(uiColor: UIColor { traits in
+        UIColor(hex: traits.userInterfaceStyle == .dark ? dark : light)
+    })
+}
+
+extension UIColor {
+    convenience init(hex: UInt) {
+        self.init(red: CGFloat((hex >> 16) & 0xFF) / 255,
+                  green: CGFloat((hex >> 8) & 0xFF) / 255,
+                  blue: CGFloat(hex & 0xFF) / 255,
+                  alpha: 1)
     }
 }
 

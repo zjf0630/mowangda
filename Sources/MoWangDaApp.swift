@@ -4,8 +4,8 @@ import SwiftUI
 struct MoWangDaApp: App {
     var body: some Scene {
         WindowGroup {
+            // 不锁定外观：跟随系统的浅色 / 深色
             RootView()
-                .preferredColorScheme(.light)
                 .tint(Theme.accent)
         }
     }

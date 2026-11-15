@@ -3,7 +3,9 @@ import SwiftUI
 struct RootView: View {
     @StateObject private var store = ReminderStore()
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.colorScheme) private var scheme
     @State private var showCompose = false
+    @State private var showSettings = false
     @State private var doneOpen = false
     @State private var selectMode = false
     @State private var selected: Set<String> = []
@@ -19,6 +21,7 @@ struct RootView: View {
             bottomBar
         }
         .sheet(isPresented: $showCompose) { ComposeView(store: store) }
+        .sheet(isPresented: $showSettings) { SettingsView(store: store) }
         .sheet(item: $detailItem) { item in
             DetailView(store: store, item: item)
         }
@@ -40,17 +43,30 @@ struct RootView: View {
                 Text("莫忘哒").font(.system(size: 26, weight: .semibold)).foregroundColor(Theme.ink)
             }
             Spacer()
-            Button {
-                withAnimation { selectMode.toggle(); selected.removeAll() }
-            } label: {
-                Text(selectMode ? "取消" : "选择")
-                    .font(.system(size: 12))
-                    .padding(.horizontal, 12).frame(height: 32)
-                    .background(Color.white)
-                    .cornerRadius(16)
-                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.line, lineWidth: 1))
+            HStack(spacing: 8) {
+                Button { showSettings = true } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 13))
+                        .foregroundColor(Theme.ink2)
+                        .frame(width: 32, height: 32)
+                        .background(Circle().fill(Theme.card))
+                        .overlay(Circle().stroke(Theme.line, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("设置")
+
+                Button {
+                    withAnimation { selectMode.toggle(); selected.removeAll() }
+                } label: {
+                    Text(selectMode ? "取消" : "选择")
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.ink2)
+                        .padding(.horizontal, 12).frame(height: 32)
+                        .background(Capsule().fill(Theme.card))
+                        .overlay(Capsule().stroke(Theme.line, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 22).padding(.top, 14).padding(.bottom, 12)
     }
@@ -188,11 +204,12 @@ struct RootView: View {
     private func row(_ item: TodoItem) -> some View {
         let picked = selected.contains(item.id)
         // 优先级配色：整张卡片淡染一层，描边同色加深，左竖条用实色
+        let dark = scheme == .dark
         let pc = Theme.priority(item.priority)
-        let fillColor: Color = item.done ? .clear : (pc?.opacity(0.11) ?? Color.white)
-        let strokeColor: Color = item.done ? .clear : (pc?.opacity(0.30) ?? Theme.line)
+        let fillColor: Color = item.done ? .clear : Theme.priorityFill(item.priority, dark: dark)
+        let strokeColor: Color = item.done ? .clear : Theme.priorityStroke(item.priority, dark: dark)
         let barColor: Color = item.done ? .clear
-            : (pc ?? (item.deadline ? Theme.amber : (item.due == nil ? Color(hex: 0xDCD9D1) : Theme.accent)))
+            : (pc ?? (item.deadline ? Theme.amber : (item.due == nil ? Theme.barNone : Theme.accent)))
 
         return Button { tap(item) } label: {
             HStack(alignment: .top, spacing: 10) {
@@ -211,7 +228,7 @@ struct RootView: View {
                     Spacer()
                     if selectMode {
                         Circle()
-                            .strokeBorder(picked ? Theme.accent : Color(hex: 0xD8D5CD), lineWidth: 1.5)
+                            .strokeBorder(picked ? Theme.accent : Theme.tick, lineWidth: 1.5)
                             .background(Circle().fill(picked ? Theme.accent : Color.clear))
                             .frame(width: 21, height: 21)
                     } else {
@@ -220,12 +237,12 @@ struct RootView: View {
                                 .fill(item.done ? Theme.accent : Color.clear)
                                 .frame(width: 21, height: 21)
                             Circle()
-                                .strokeBorder(item.done ? Theme.accent : Color(hex: 0xD8D5CD), lineWidth: 1.5)
+                                .strokeBorder(item.done ? Theme.accent : Theme.tick, lineWidth: 1.5)
                                 .frame(width: 21, height: 21)
                             if item.done {
                                 Image(systemName: "checkmark")
                                     .font(.system(size: 9, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(Theme.card)
                             }
                         }
                     }
@@ -244,8 +261,10 @@ struct RootView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        // 左滑：完成 / 重开
-        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+        // 只保留向左滑：完成 / 重开 + 删除，两个按钮都在右侧
+        // 第一个按钮（最靠边）是"完成"，全面滑动触发的是它——不会误删；
+        // 删除必须点一下，避免手滑把事项划没了。
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             if !selectMode {
                 Button {
                     Task { await store.setDone(item, !item.done) }
@@ -254,11 +273,7 @@ struct RootView: View {
                           systemImage: item.done ? "arrow.uturn.backward" : "checkmark")
                 }
                 .tint(Theme.accent)
-            }
-        }
-        // 右滑（从右侧往左划）：删除
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            if !selectMode {
+
                 Button(role: .destructive) {
                     Task { await store.delete(ids: [item.id]) }
                 } label: {
@@ -302,9 +317,10 @@ struct RootView: View {
                     selected = all ? [] : Set(ids)
                 } label: {
                     Text("全选").font(.system(size: 13, weight: .medium))
+                        .foregroundColor(Theme.ink2)
                         .padding(.horizontal, 22).padding(.vertical, 12)
-                        .background(Capsule().fill(Color.white))
-                        .overlay(Capsule().stroke(Color(hex: 0xE0DDD5), lineWidth: 1))
+                        .background(Capsule().fill(Theme.card))
+                        .overlay(Capsule().stroke(Theme.edge, lineWidth: 1))
                 }
                 Button {
                     let ids = selected
@@ -316,14 +332,14 @@ struct RootView: View {
                     Text("删除（\(selected.count)）").font(.system(size: 13, weight: .medium))
                         .padding(.horizontal, 22).padding(.vertical, 12)
                         .background(Capsule().fill(selected.isEmpty ? Theme.danger.opacity(0.45) : Theme.danger))
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.bg)
                 }
                 .disabled(selected.isEmpty)
             } else {
                 Button { showCompose = true } label: {
                     Text("＋ 记一条").font(.system(size: 13, weight: .medium))
                         .padding(.horizontal, 24).padding(.vertical, 12)
-                        .background(Capsule().fill(Theme.accent)).foregroundColor(.white)
+                        .background(Capsule().fill(Theme.accent)).foregroundColor(Theme.bg)
                 }
             }
         }

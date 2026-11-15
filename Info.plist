@@ -35,8 +35,6 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
-	<key>UIUserInterfaceStyle</key>
-	<string>Light</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>莫忘哒需要读写「提醒事项」，把你的行程写进系统提醒事项，并读取你已有的安排。</string>
 	<key>NSRemindersUsageDescription</key>

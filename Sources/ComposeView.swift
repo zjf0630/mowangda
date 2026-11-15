@@ -52,7 +52,7 @@ struct ComposeView: View {
             .lineLimit(2...6)
             .focused($focused)
             .padding(14)
-            .background(RoundedRectangle(cornerRadius: 18).fill(Color.white)
+            .background(RoundedRectangle(cornerRadius: 18).fill(Theme.card)
                 .overlay(RoundedRectangle(cornerRadius: 18).stroke(Theme.line, lineWidth: 1)))
             .onChange(of: text) { _, v in reparse(v) }
             .padding(.horizontal, 20).padding(.top, 8)
@@ -98,18 +98,18 @@ struct ComposeView: View {
                 Text(whenText(p))
                     .font(.system(size: 10.5, weight: .medium))
                     .padding(.horizontal, 9).padding(.vertical, 4)
-                    .background(Capsule().fill(p.deadline ? Color(hex: 0xFAEEDA) : (p.due != nil ? Theme.accentSoft : Theme.bg)))
-                    .foregroundColor(p.deadline ? Color(hex: 0x854F0B) : (p.due != nil ? Theme.accent : Theme.muted))
+                    .background(Capsule().fill(p.deadline ? Theme.chipWarn : (p.due != nil ? Theme.accentSoft : Theme.chip)))
+                    .foregroundColor(p.deadline ? Theme.chipWarnInk : (p.due != nil ? Theme.accent : Theme.muted))
                 Text(p.listName)
                     .font(.system(size: 10.5))
                     .padding(.horizontal, 9).padding(.vertical, 4)
-                    .background(Capsule().fill(Color(hex: 0xF1EFE9)))
+                    .background(Capsule().fill(Theme.chip))
                     .foregroundColor(Theme.muted)
                 Spacer()
             }
         }
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color.white)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Theme.card)
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.line, lineWidth: 1)))
         .padding(.horizontal, 20).padding(.bottom, 8)
     }
@@ -124,7 +124,7 @@ struct ComposeView: View {
                         .frame(width: 54, height: 54)
                     Image(systemName: speech.transcribing ? "stop.fill" : "mic.fill")
                         .font(.system(size: 19, weight: .medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.bg)
                 }
             }
             .buttonStyle(.plain)
@@ -136,8 +136,8 @@ struct ComposeView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)
                     .background(RoundedRectangle(cornerRadius: 16)
-                        .fill(parsed.isEmpty ? Color(hex: 0xD9D6CE) : Theme.accent))
-                    .foregroundColor(.white)
+                        .fill(parsed.isEmpty ? Theme.disabled : Theme.accent))
+                    .foregroundColor(Theme.bg)
             }
             .disabled(parsed.isEmpty)
 

@@ -97,7 +97,7 @@ final class ReminderStore: ObservableObject {
                 }
                 r.dueDateComponents = dc
                 if item.remindMinutes > 0 {
-                    r.alarms = [EKAlarm(relativeOffset: TimeInterval(-item.remindMinutes * 60))]
+                    r.alarms = [makeAlarm(item.remindMinutes)]
                 }
             }
             try? store.save(r, commit: true)
@@ -120,7 +120,7 @@ final class ReminderStore: ObservableObject {
                 dc.hour = hm.hour; dc.minute = hm.minute
             }
             r.dueDateComponents = dc
-            r.alarms = item.remindMinutes > 0 ? [EKAlarm(relativeOffset: TimeInterval(-item.remindMinutes * 60))] : nil
+            r.alarms = item.remindMinutes > 0 ? [makeAlarm(item.remindMinutes)] : nil
         } else {
             r.dueDateComponents = nil
             r.alarms = nil
@@ -148,6 +148,31 @@ final class ReminderStore: ObservableObject {
                 try? store.remove(r, commit: true)
             }
         }
+    }
+
+    // MARK: - 提醒声音
+
+    /// 提前 N 分钟的提醒。声音取全局偏好：
+    /// 默认 = nil（跟随系统）、静音 = ""（只弹通知）、短信 = 三全音。
+    private func makeAlarm(_ minutes: Int) -> EKAlarm {
+        let alarm = EKAlarm(relativeOffset: TimeInterval(-minutes * 60))
+        alarm.soundName = AlarmTone.current.soundName
+        return alarm
+    }
+
+    /// 用户改了提醒声音后，把现有未完成条目的提醒声音就地刷新一遍，
+    /// 省得逐条打开详情页再保存一次。
+    func refreshAlarms() async {
+        guard authorized else { return }
+        var touched = false
+        for item in items where !item.done && item.remindMinutes > 0 {
+            guard let r = store.calendarItem(withIdentifier: item.id) as? EKReminder,
+                  r.alarms?.isEmpty == false else { continue }
+            r.alarms = [makeAlarm(item.remindMinutes)]
+            try? store.save(r, commit: false)
+            touched = true
+        }
+        if touched { try? store.commit() }
     }
 
     // MARK: - 列表
