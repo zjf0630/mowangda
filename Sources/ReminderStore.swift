@@ -148,7 +148,8 @@ final class ReminderStore: ObservableObject {
             r.recurrenceRules = [EKRecurrenceRule(
                 recurrenceWith: .weekly, interval: 1,
                 daysOfTheWeek: Self.workdays.map { EKRecurrenceDayOfWeek($0) },
-                end: nil)]
+                daysOfTheMonth: nil, monthsOfTheYear: nil, weeksOfTheYear: nil,
+                daysOfTheYear: nil, setPositions: nil, end: nil)]
         default:
             r.recurrenceRules = nil
         }
