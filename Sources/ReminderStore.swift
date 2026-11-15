@@ -61,6 +61,18 @@ final class ReminderStore: ObservableObject {
             case 8...9: pri = 1
             default: pri = 0
             }
+            // 重复规则：识别「每天」「工作日」，其它重复一律显示为「重复」
+            let rep: String?
+            if let rule = r.recurrenceRules?.first {
+                let days = rule.daysOfTheWeek?.map(\.dayOfTheWeek)
+                switch rule.frequency {
+                case .daily: rep = "daily"
+                case .weekly where days == TodoItem.workdayIndexes: rep = "workday"
+                default: rep = "custom"
+                }
+            } else {
+                rep = nil
+            }
             return TodoItem(
                 id: r.calendarItemIdentifier,
                 title: r.title ?? "",
@@ -71,7 +83,8 @@ final class ReminderStore: ObservableObject {
                 remindMinutes: remind,
                 note: note.replacingOccurrences(of: deadlineMark, with: ""),
                 priority: pri,
-                done: r.isCompleted
+                done: r.isCompleted,
+                repeatRule: rep
             )
         }
         lastSync = Date()
@@ -83,7 +96,8 @@ final class ReminderStore: ObservableObject {
     func add(_ p: ParsedItem) async {
         var item = TodoItem(id: UUID().uuidString, title: p.title, due: p.due, hasTime: p.hasTime,
                             deadline: p.deadline, listName: p.listName,
-                            remindMinutes: p.hasTime ? Prefs.leadMinutes : 0, note: "", priority: 0, done: false)
+                            remindMinutes: p.hasTime ? Prefs.leadMinutes : 0, note: "", priority: 0, done: false,
+                            repeatRule: nil)
         if authorized, let cal = ensureCalendar() {
             let r = EKReminder(eventStore: store)
             r.title = item.title
@@ -126,6 +140,18 @@ final class ReminderStore: ObservableObject {
             r.alarms = nil
         }
         r.priority = [0, 9, 5, 1][min(3, max(0, item.priority))]
+        // 重复规则（每天 / 工作日）。注意 EKRecurrenceDayOfWeek 的编号：1 = 周日，周一到周五是 2...6。
+        switch item.repeatRule {
+        case "daily":
+            r.recurrenceRules = [EKRecurrenceRule(recurrenceWith: .daily, interval: 1, end: nil)]
+        case "workday":
+            r.recurrenceRules = [EKRecurrenceRule(
+                recurrenceWith: .weekly, interval: 1,
+                daysOfTheWeek: TodoItem.workdayIndexes.map { EKRecurrenceDayOfWeek($0) },
+                end: nil)]
+        default:
+            r.recurrenceRules = nil
+        }
         try? store.save(r, commit: true)
     }
 
@@ -186,5 +212,7 @@ final class ReminderStore: ObservableObject {
     private func saveCache() {
         guard let data = try? JSONEncoder().encode(items) else { return }
         UserDefaults.standard.set(data, forKey: cacheKey)
+        // 数据一变就同步一份快照给桌面小组件
+        WidgetBridge.publish(items: items)
     }
 }

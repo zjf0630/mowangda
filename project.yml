@@ -19,7 +19,11 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - Sources
+      - Shared
       - Resources
+    dependencies:
+      - target: MoWangDaWidget
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.wuhan.mowangda
@@ -29,6 +33,25 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: ""
+        CODE_SIGN_ENTITLEMENTS: App.entitlements
+
+  MoWangDaWidget:
+    type: widgetkit-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - Widget
+      - Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.wuhan.mowangda.widget
+        PRODUCT_NAME: MoWangDaWidget
+        INFOPLIST_FILE: Widget/Info.plist
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_ENTITLEMENTS: Widget/Widget.entitlements
+        SKIP_INSTALL: "YES"
 
 schemes:
   MoWangDa:

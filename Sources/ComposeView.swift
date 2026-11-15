@@ -36,11 +36,11 @@ struct ComposeView: View {
             Button("取消") { speech.stop(); dismiss() }
             Spacer()
             Text(speech.transcribing ? "正在听…" : "说一句，或打一行")
-                .font(.system(size: 12)).foregroundColor(Theme.muted)
+                .font(.system(size: Theme.fs(12))).foregroundColor(Theme.muted)
             Spacer()
             Button("清空") { text = ""; parsed = [] }.foregroundColor(Theme.muted)
         }
-        .font(.system(size: 13))
+        .font(.system(size: Theme.fs(13)))
         .padding(.horizontal, 22).padding(.top, 12).padding(.bottom, 4)
     }
 
@@ -48,7 +48,7 @@ struct ComposeView: View {
 
     private var inputBox: some View {
         TextField("明天下午3点跟张总碰方案，周三前把预算表发财务", text: $text, axis: .vertical)
-            .font(.system(size: 15))
+            .font(.system(size: Theme.fs(15)))
             .lineLimit(2...6)
             .focused($focused)
             .padding(14)
@@ -64,9 +64,9 @@ struct ComposeView: View {
         VStack(alignment: .leading, spacing: 0) {
             if !parsed.isEmpty {
                 HStack(spacing: 8) {
-                    Text("识别到 \(parsed.count) 项").font(.system(size: 11.5, weight: .medium))
+                    Text("识别到 \(parsed.count) 项").font(.system(size: Theme.fs(11.5), weight: .medium))
                     Rectangle().fill(Theme.line).frame(height: 1)
-                    Text("可逐条改").font(.system(size: 10.5)).foregroundColor(Theme.faint)
+                    Text("可逐条改").font(.system(size: Theme.fs(10.5))).foregroundColor(Theme.faint)
                 }
                 .foregroundColor(Theme.muted)
                 .padding(.horizontal, 20).padding(.top, 18).padding(.bottom, 8)
@@ -76,7 +76,7 @@ struct ComposeView: View {
             }
             if parsed.isEmpty {
                 Text("说完或打完，这里会即时拆成带时间的一条条")
-                    .font(.system(size: 12)).foregroundColor(Theme.faint)
+                    .font(.system(size: Theme.fs(12))).foregroundColor(Theme.faint)
                     .frame(maxWidth: .infinity)
                     .padding(.top, 44)
             }
@@ -88,20 +88,20 @@ struct ComposeView: View {
         let p = parsed[i]
         return VStack(alignment: .leading, spacing: 9) {
             HStack(alignment: .top) {
-                Text(p.title).font(.system(size: 13.5, weight: .medium)).lineLimit(2)
+                Text(p.title).font(.system(size: Theme.fs(13.5), weight: .medium)).lineLimit(2)
                 Spacer()
                 Button { parsed.remove(at: i); reparse(text) } label: {
-                    Text("×").font(.system(size: 15)).foregroundColor(Theme.faint)
+                    Text("×").font(.system(size: Theme.fs(15))).foregroundColor(Theme.faint)
                 }
             }
             HStack(spacing: 5) {
                 Text(whenText(p))
-                    .font(.system(size: 10.5, weight: .medium))
+                    .font(.system(size: Theme.fs(10.5), weight: .medium))
                     .padding(.horizontal, 9).padding(.vertical, 4)
                     .background(Capsule().fill(p.deadline ? Theme.chipWarn : (p.due != nil ? Theme.accentSoft : Theme.chip)))
                     .foregroundColor(p.deadline ? Theme.chipWarnInk : (p.due != nil ? Theme.accent : Theme.muted))
                 Text(p.listName)
-                    .font(.system(size: 10.5))
+                    .font(.system(size: Theme.fs(10.5)))
                     .padding(.horizontal, 9).padding(.vertical, 4)
                     .background(Capsule().fill(Theme.chip))
                     .foregroundColor(Theme.muted)
@@ -123,7 +123,7 @@ struct ComposeView: View {
                     Circle().fill(speech.transcribing ? Theme.danger : Theme.accent)
                         .frame(width: 54, height: 54)
                     Image(systemName: speech.transcribing ? "stop.fill" : "mic.fill")
-                        .font(.system(size: 19, weight: .medium))
+                        .font(.system(size: Theme.fs(19), weight: .medium))
                         .foregroundColor(Theme.bg)
                 }
             }
@@ -132,7 +132,7 @@ struct ComposeView: View {
 
             Button { write() } label: {
                 Text(parsed.isEmpty ? "写入提醒事项" : "写入提醒事项 · \(parsed.count) 项")
-                    .font(.system(size: 13.5, weight: .medium))
+                    .font(.system(size: Theme.fs(13.5), weight: .medium))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)
                     .background(RoundedRectangle(cornerRadius: 16)
@@ -141,7 +141,7 @@ struct ComposeView: View {
             }
             .disabled(parsed.isEmpty)
 
-            Text(hint).font(.system(size: 10.5)).foregroundColor(Theme.muted)
+            Text(hint).font(.system(size: Theme.fs(10.5))).foregroundColor(Theme.muted)
         }
         .padding(.horizontal, 20)
         .padding(.top, 10)

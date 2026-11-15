@@ -28,4 +28,25 @@ enum Prefs {
     static func leadText(_ m: Int) -> String {
         m == 0 ? "不提醒" : "提前 \(m) 分钟"
     }
+
+    // MARK: - 字体大小
+
+    private static let fontLevelKey = "mowangda.fontLevel.v1"
+
+    /// 0 = 标准（默认），1 = 大，2 = 特大
+    static var fontLevel: Int {
+        get {
+            let v = UserDefaults.standard.integer(forKey: fontLevelKey)
+            return min(2, max(0, v))
+        }
+        set { UserDefaults.standard.set(min(2, max(0, newValue)), forKey: fontLevelKey) }
+    }
+
+    static let fontScales: [CGFloat] = [1.0, 1.18, 1.38]
+    static let fontNames = ["标准", "大", "特大"]
+    static let fontDescs = ["当前大小", "大约大一号", "大约大两号"]
+
+    static var fontScale: CGFloat {
+        fontScales[min(2, max(0, fontLevel))]
+    }
 }

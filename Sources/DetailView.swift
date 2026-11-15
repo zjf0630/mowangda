@@ -15,6 +15,7 @@ struct DetailView: View {
     @State private var priority: Int = 0
     @State private var note: String = ""
     @State private var deadline: Bool = false
+    @State private var repeatRule: String? = nil
 
     var body: some View {
         ZStack {
@@ -24,14 +25,14 @@ struct DetailView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         TextField("事项标题", text: $title)
-                            .font(.system(size: 19, weight: .semibold))
+                            .font(.system(size: Theme.fs(19), weight: .semibold))
                             .padding(.horizontal, 22).padding(.vertical, 12)
                         rows
                         noteBox
                         HStack(spacing: 6) {
                             Circle().fill(Theme.accent).frame(width: 5, height: 5)
                             Text(store.authorized ? "已同步到提醒事项" : "本地保存（未授权提醒事项）")
-                                .font(.system(size: 10.5)).foregroundColor(Theme.muted)
+                                .font(.system(size: Theme.fs(10.5))).foregroundColor(Theme.muted)
                         }
                         .frame(maxWidth: .infinity).padding(.top, 16)
                         Button {
@@ -40,7 +41,7 @@ struct DetailView: View {
                                 dismiss()
                             }
                         } label: {
-                            Text("删除事项").font(.system(size: 12.5)).foregroundColor(Theme.danger)
+                            Text("删除事项").font(.system(size: Theme.fs(12.5))).foregroundColor(Theme.danger)
                         }
                         .frame(maxWidth: .infinity).padding(.top, 22)
                     }
@@ -55,11 +56,11 @@ struct DetailView: View {
         HStack {
             Button("‹ 返回") { dismiss() }
             Spacer()
-            Text("提醒事项").font(.system(size: 12)).foregroundColor(Theme.muted)
+            Text("提醒事项").font(.system(size: Theme.fs(12))).foregroundColor(Theme.muted)
             Spacer()
             Button("完成") { dismiss() }
         }
-        .font(.system(size: 13))
+        .font(.system(size: Theme.fs(13)))
         .padding(.horizontal, 22).padding(.top, 12)
     }
 
@@ -85,7 +86,7 @@ struct DetailView: View {
                     }
                 } else {
                     Button("设定时间") { hasDue = true }
-                        .font(.system(size: 12.5, weight: .medium)).foregroundColor(Theme.accent)
+                        .font(.system(size: Theme.fs(12.5), weight: .medium)).foregroundColor(Theme.accent)
                 }
             }
             divider
@@ -94,7 +95,7 @@ struct DetailView: View {
                     Button("工作") { listName = "工作" }
                     Button("个人") { listName = "个人" }
                 } label: {
-                    Text(listName).font(.system(size: 12.5, weight: .medium))
+                    Text(listName).font(.system(size: Theme.fs(12.5), weight: .medium))
                 }
             }
             divider
@@ -109,7 +110,7 @@ struct DetailView: View {
                             .fill(Theme.priority(priority) ?? Theme.tick)
                             .frame(width: 8, height: 8)
                         Text(Theme.priorityName(priority))
-                            .font(.system(size: 12.5, weight: .medium))
+                            .font(.system(size: Theme.fs(12.5), weight: .medium))
                     }
                 }
             }
@@ -121,10 +122,30 @@ struct DetailView: View {
                     }
                 } label: {
                     Text(remind == 0 ? "不提醒" : "提前 \(remind) 分钟")
-                        .font(.system(size: 12.5, weight: .medium))
+                        .font(.system(size: Theme.fs(12.5), weight: .medium))
                 }
             }
             divider
+            if hasDue {
+                row("重复") {
+                    Menu {
+                        Button("不重复") { repeatRule = nil }
+                        Button("每天") { repeatRule = "daily" }
+                        Button("工作日（周一到周五）") { repeatRule = "workday" }
+                    } label: {
+                        HStack(spacing: 6) {
+                            if let r = repeatRule, r != "custom" {
+                                Image(systemName: "repeat")
+                                    .font(.system(size: Theme.fs(9), weight: .semibold))
+                                    .foregroundColor(Theme.accent)
+                            }
+                            Text(repeatName(repeatRule))
+                                .font(.system(size: Theme.fs(12.5), weight: .medium))
+                        }
+                    }
+                }
+                divider
+            }
             row("截止") {
                 Toggle("", isOn: $deadline).labelsHidden().fixedSize()
             }
@@ -136,9 +157,18 @@ struct DetailView: View {
 
     private var divider: some View { Rectangle().fill(Theme.line).frame(height: 1) }
 
+    private func repeatName(_ r: String?) -> String {
+        switch r {
+        case "daily": return "每天"
+        case "workday": return "工作日"
+        case "custom": return "重复"
+        default: return "不重复"
+        }
+    }
+
     private func row<K: View>(_ key: String, @ViewBuilder value: () -> K) -> some View {
         HStack {
-            Text(key).font(.system(size: 12.5)).foregroundColor(Theme.muted)
+            Text(key).font(.system(size: Theme.fs(12.5))).foregroundColor(Theme.muted)
             Spacer()
             value()
         }
@@ -147,7 +177,7 @@ struct DetailView: View {
 
     private var noteBox: some View {
         TextField("备注…", text: $note, axis: .vertical)
-            .font(.system(size: 12.5)).lineLimit(2...5)
+            .font(.system(size: Theme.fs(12.5))).lineLimit(2...5)
             .padding(14)
             .background(RoundedRectangle(cornerRadius: 16).fill(Theme.card)
                 .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.line, lineWidth: 1)))
@@ -164,6 +194,7 @@ struct DetailView: View {
         priority = item.priority
         note = item.note
         deadline = item.deadline
+        repeatRule = item.repeatRule
     }
 
     private func commit() {
@@ -176,6 +207,8 @@ struct DetailView: View {
         v.priority = priority
         v.note = note
         v.deadline = deadline
+        // 没设时间的事项谈不到重复
+        v.repeatRule = hasDue ? repeatRule : nil
         if v != item {
             Task { await store.update(v) }
         }

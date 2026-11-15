@@ -4,6 +4,8 @@ struct RootView: View {
     @StateObject private var store = ReminderStore()
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var scheme
+    // 字体大小档位：设置页改它，.id(fontLevel) 让整棵视图树用新字号重建
+    @AppStorage("mowangda.fontLevel.v1") private var fontLevel = 0
     @State private var showCompose = false
     @State private var showSettings = false
     @State private var doneOpen = false
@@ -20,6 +22,7 @@ struct RootView: View {
             }
             bottomBar
         }
+        .id(fontLevel)
         .sheet(isPresented: $showCompose) { ComposeView(store: store) }
         .sheet(isPresented: $showSettings) { SettingsView() }
         .sheet(item: $detailItem) { item in
@@ -39,14 +42,14 @@ struct RootView: View {
     private var header: some View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(dateLine).font(.system(size: 12)).foregroundColor(Theme.muted)
-                Text("莫忘哒").font(.system(size: 26, weight: .semibold)).foregroundColor(Theme.ink)
+                Text(dateLine).font(.system(size: Theme.fs(12))).foregroundColor(Theme.muted)
+                Text("莫忘哒").font(.system(size: Theme.fs(26), weight: .semibold)).foregroundColor(Theme.ink)
             }
             Spacer()
             HStack(spacing: 8) {
                 Button { showSettings = true } label: {
                     Image(systemName: "gearshape")
-                        .font(.system(size: 13))
+                        .font(.system(size: Theme.fs(13)))
                         .foregroundColor(Theme.ink2)
                         .frame(width: 32, height: 32)
                         .background(Circle().fill(Theme.card))
@@ -59,7 +62,7 @@ struct RootView: View {
                     withAnimation { selectMode.toggle(); selected.removeAll() }
                 } label: {
                     Text(selectMode ? "取消" : "选择")
-                        .font(.system(size: 12))
+                        .font(.system(size: Theme.fs(12)))
                         .foregroundColor(Theme.ink2)
                         .padding(.horizontal, 12).frame(height: 32)
                         .background(Capsule().fill(Theme.card))
@@ -166,9 +169,9 @@ struct RootView: View {
             withAnimation { doneOpen.toggle() }
         } label: {
             HStack {
-                Text("已完成 · \(count) 项").font(.system(size: 11.5, weight: .medium))
+                Text("已完成 · \(count) 项").font(.system(size: Theme.fs(11.5), weight: .medium))
                 Spacer()
-                Text(doneOpen ? "收起 ▴" : "展开 ▾").font(.system(size: 10.5))
+                Text(doneOpen ? "收起 ▴" : "展开 ▾").font(.system(size: Theme.fs(10.5)))
             }
             .foregroundColor(Theme.muted)
             .padding(.horizontal, 22).padding(.top, 18).padding(.bottom, 8)
@@ -178,7 +181,7 @@ struct RootView: View {
 
     private var emptyHint: some View {
         Text("还没有事项\n点下面「＋ 记一条」，说一句就行")
-            .font(.system(size: 12.5)).foregroundColor(Theme.faint)
+            .font(.system(size: Theme.fs(12.5))).foregroundColor(Theme.faint)
             .multilineTextAlignment(.center).lineSpacing(6)
             .frame(maxWidth: .infinity)
             .padding(.top, 60)
@@ -186,9 +189,9 @@ struct RootView: View {
 
     private func sectionHeader(_ name: String, count: Int, date: Date?) -> some View {
         HStack(spacing: 8) {
-            Text(sectionTitle(name, date: date)).font(.system(size: 11.5, weight: .medium))
+            Text(sectionTitle(name, date: date)).font(.system(size: Theme.fs(11.5), weight: .medium))
             Rectangle().fill(Theme.line).frame(height: 1)
-            Text("\(count) 项").font(.system(size: 10.5)).foregroundColor(Theme.faint)
+            Text("\(count) 项").font(.system(size: Theme.fs(10.5))).foregroundColor(Theme.faint)
         }
         .foregroundColor(Theme.muted)
         .padding(.horizontal, 22).padding(.top, 18).padding(.bottom, 8)
@@ -214,16 +217,16 @@ struct RootView: View {
         return Button { tap(item) } label: {
             HStack(alignment: .top, spacing: 10) {
                 Text(timeText(item))
-                    .font(.system(size: 11).monospacedDigit())
+                    .font(.system(size: Theme.fs(11)).monospacedDigit())
                     .foregroundColor(item.hasTime ? Theme.muted : Theme.faint)
                     .frame(width: 42, alignment: .leading).padding(.top, 13)
                 HStack(spacing: 10) {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(item.title).font(.system(size: 13.5, weight: .medium))
+                        Text(item.title).font(.system(size: Theme.fs(13.5), weight: .medium))
                             .foregroundColor(item.done ? Theme.faint : Theme.ink)
                             .strikethrough(item.done)
                             .lineLimit(2)
-                        Text(subText(item)).font(.system(size: 10.5)).foregroundColor(Theme.muted)
+                        Text(subText(item)).font(.system(size: Theme.fs(10.5))).foregroundColor(Theme.muted)
                     }
                     Spacer()
                     if selectMode {
@@ -241,7 +244,7 @@ struct RootView: View {
                                 .frame(width: 21, height: 21)
                             if item.done {
                                 Image(systemName: "checkmark")
-                                    .font(.system(size: 9, weight: .bold))
+                                    .font(.system(size: Theme.fs(9), weight: .bold))
                                     .foregroundColor(Theme.card)
                             }
                         }
@@ -315,7 +318,7 @@ struct RootView: View {
                     let all = !ids.isEmpty && ids.allSatisfy { selected.contains($0) }
                     selected = all ? [] : Set(ids)
                 } label: {
-                    Text("全选").font(.system(size: 13, weight: .medium))
+                    Text("全选").font(.system(size: Theme.fs(13), weight: .medium))
                         .foregroundColor(Theme.ink2)
                         .padding(.horizontal, 22).padding(.vertical, 12)
                         .background(Capsule().fill(Theme.card))
@@ -328,7 +331,7 @@ struct RootView: View {
                         selected.removeAll(); selectMode = false
                     }
                 } label: {
-                    Text("删除（\(selected.count)）").font(.system(size: 13, weight: .medium))
+                    Text("删除（\(selected.count)）").font(.system(size: Theme.fs(13), weight: .medium))
                         .padding(.horizontal, 22).padding(.vertical, 12)
                         .background(Capsule().fill(selected.isEmpty ? Theme.danger.opacity(0.45) : Theme.danger))
                         .foregroundColor(Theme.bg)
@@ -336,7 +339,7 @@ struct RootView: View {
                 .disabled(selected.isEmpty)
             } else {
                 Button { showCompose = true } label: {
-                    Text("＋ 记一条").font(.system(size: 13, weight: .medium))
+                    Text("＋ 记一条").font(.system(size: Theme.fs(13), weight: .medium))
                         .padding(.horizontal, 24).padding(.vertical, 12)
                         .background(Capsule().fill(Theme.accent)).foregroundColor(Theme.bg)
                 }
@@ -377,6 +380,7 @@ struct RootView: View {
         else if !item.hasTime { s = item.listName + " · 全天" }
         else { s = item.listName + (item.remindMinutes > 0 ? " · 提前\(item.remindMinutes)分钟" : " · 不提醒") }
         if item.priority > 0 && !item.done { s += " · " + Theme.priorityName(item.priority) }
+        if let r = item.repeatName, !item.done { s += " · " + r }
         return s
     }
 }

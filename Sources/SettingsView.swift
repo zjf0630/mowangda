@@ -5,6 +5,7 @@ import UIKit
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @AppStorage("mowangda.fontLevel.v1") private var fontLevel = 0
     @State private var lead: Int = Prefs.leadMinutes
 
     var body: some View {
@@ -16,6 +17,8 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 0) {
                         sectionLabel("默认提醒")
                         leadCard
+                        sectionLabel("字体大小")
+                        fontCard
                         sectionLabel("铃声与振动")
                         toneCard
                         Color.clear.frame(height: 28)
@@ -29,17 +32,17 @@ struct SettingsView: View {
         HStack {
             Button("‹ 返回") { dismiss() }
             Spacer()
-            Text("设置").font(.system(size: 12)).foregroundColor(Theme.muted)
+            Text("设置").font(.system(size: Theme.fs(12))).foregroundColor(Theme.muted)
             Spacer()
             Button("完成") { dismiss() }
         }
-        .font(.system(size: 13))
+        .font(.system(size: Theme.fs(13)))
         .padding(.horizontal, 22).padding(.top, 12).padding(.bottom, 6)
     }
 
     private func sectionLabel(_ s: String) -> some View {
         HStack(spacing: 8) {
-            Text(s).font(.system(size: 11.5, weight: .medium))
+            Text(s).font(.system(size: Theme.fs(11.5), weight: .medium))
             Rectangle().fill(Theme.line).frame(height: 1)
         }
         .foregroundColor(Theme.muted)
@@ -49,9 +52,9 @@ struct SettingsView: View {
     private var leadCard: some View {
         HStack {
             VStack(alignment: .leading, spacing: 3) {
-                Text("新记的条目").font(.system(size: 13.5)).foregroundColor(Theme.ink)
+                Text("新记的条目").font(.system(size: Theme.fs(13.5))).foregroundColor(Theme.ink)
                 Text("到点前多久提醒你，可在详情页逐条改")
-                    .font(.system(size: 10.5)).foregroundColor(Theme.muted)
+                    .font(.system(size: Theme.fs(10.5))).foregroundColor(Theme.muted)
             }
             Spacer()
             Menu {
@@ -63,7 +66,7 @@ struct SettingsView: View {
                 }
             } label: {
                 Text(Prefs.leadText(lead))
-                    .font(.system(size: 12.5, weight: .medium))
+                    .font(.system(size: Theme.fs(12.5), weight: .medium))
                     .foregroundColor(Theme.accent)
             }
         }
@@ -73,10 +76,45 @@ struct SettingsView: View {
         .padding(.horizontal, 20)
     }
 
+    private var fontCard: some View {
+        VStack(spacing: 0) {
+            ForEach(0..<3, id: \.self) { level in
+                if level > 0 { Rectangle().fill(Theme.line).frame(height: 1).padding(.leading, 15) }
+                Button {
+                    fontLevel = level
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            // 用该档的实际字号做预览
+                            Text(Prefs.fontNames[level])
+                                .font(.system(size: Prefs.fontScales[level] * 13.5, weight: .medium))
+                                .foregroundColor(Theme.ink)
+                            Text(Prefs.fontDescs[level])
+                                .font(.system(size: Theme.fs(10.5)))
+                                .foregroundColor(Theme.muted)
+                        }
+                        Spacer()
+                        if fontLevel == level {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: Theme.fs(12), weight: .semibold))
+                                .foregroundColor(Theme.accent)
+                        }
+                    }
+                    .padding(.horizontal, 15).padding(.vertical, 12)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .background(RoundedRectangle(cornerRadius: 16).fill(Theme.card)
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.line, lineWidth: 1)))
+        .padding(.horizontal, 20)
+    }
+
     private var toneCard: some View {
         VStack(alignment: .leading, spacing: 9) {
             Text("到点响不响、振几下，由 iPhone 决定，App 改不了。苹果只在 Mac 上开放了设置提醒声音的接口，iPhone 上没有。")
-                .font(.system(size: 11.5))
+                .font(.system(size: Theme.fs(11.5)))
                 .lineSpacing(3)
                 .foregroundColor(Theme.ink2)
 
@@ -92,7 +130,7 @@ struct SettingsView: View {
                 }
             } label: {
                 Text("打开系统设置")
-                    .font(.system(size: 12.5, weight: .medium))
+                    .font(.system(size: Theme.fs(12.5), weight: .medium))
                     .foregroundColor(Theme.accent)
                     .padding(.top, 2)
             }
@@ -108,8 +146,8 @@ struct SettingsView: View {
         HStack(alignment: .top, spacing: 7) {
             Circle().fill(Theme.accent.opacity(0.55)).frame(width: 4, height: 4).padding(.top, 6)
             VStack(alignment: .leading, spacing: 1) {
-                Text(head).font(.system(size: 11.5, weight: .medium)).foregroundColor(Theme.ink)
-                Text(body).font(.system(size: 10.5)).foregroundColor(Theme.muted).lineSpacing(2)
+                Text(head).font(.system(size: Theme.fs(11.5), weight: .medium)).foregroundColor(Theme.ink)
+                Text(body).font(.system(size: Theme.fs(10.5))).foregroundColor(Theme.muted).lineSpacing(2)
             }
         }
     }

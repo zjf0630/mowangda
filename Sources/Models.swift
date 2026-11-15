@@ -55,6 +55,12 @@ enum Theme {
         guard let c = priority(p) else { return line }
         return c.opacity(dark ? 0.45 : 0.30)
     }
+
+    /// 字号统一从这里走：设置页选了"大 / 特大"后全站字体按倍率放大。
+    /// 所有用 .system(size:) 的地方都要包一层 fs()，新写界面别直接写 size。
+    static func fs(_ s: CGFloat) -> CGFloat {
+        s * Prefs.fontScale
+    }
 }
 
 private func dyn(_ light: UInt, _ dark: UInt) -> Color {
@@ -84,9 +90,22 @@ struct TodoItem: Identifiable, Codable, Equatable {
     var note: String
     var priority: Int           // 0 无 1 低 2 中 3 高
     var done: Bool
+    var repeatRule: String?     // nil/"" = 不重复；"daily" = 每天；"workday" = 工作日；"custom" = 其他重复
 
     var deadlineMark: String { deadline ? "[截止]" : "" }
     var storedNote: String { deadlineMark + note }
+
+    var repeatName: String? {
+        switch repeatRule {
+        case "daily": return "每天"
+        case "workday": return "工作日"
+        case "custom": return "重复"
+        default: return nil
+        }
+    }
+
+    /// EventKit 里"工作日"对应的星期编号（1 = 周日，周一到周五是 2...6）
+    static let workdayIndexes = [2, 3, 4, 5, 6]
 }
 
 struct ParsedItem {
