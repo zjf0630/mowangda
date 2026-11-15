@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// 录入页：一句话实时拆条，逐卡可改时间，确认后写入提醒事项。
-/// 布局：顶部导航 → 中间输入框 + 识别卡片 → 底部固定操作条（麦克风 + 写入）
+/// 布局：顶部导航 → 中间输入框 + 识别卡片 → 底部固定操作条（麦克风在上，写入按钮在下）
 struct ComposeView: View {
     @ObservedObject var store: ReminderStore
     @Environment(\.dismiss) private var dismiss
@@ -114,34 +114,33 @@ struct ComposeView: View {
         .padding(.horizontal, 20).padding(.bottom, 8)
     }
 
-    // MARK: - 底部固定操作条（麦克风在屏幕下方）
+    // MARK: - 底部固定操作条（麦克风在写入按钮上方）
 
     private var bottomBar: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 12) {
-                Button { toggleSpeech() } label: {
-                    ZStack {
-                        Circle().fill(speech.transcribing ? Theme.danger : Theme.accent)
-                            .frame(width: 48, height: 48)
-                        Image(systemName: speech.transcribing ? "stop.fill" : "mic.fill")
-                            .font(.system(size: 17, weight: .medium))
-                            .foregroundColor(.white)
-                    }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(speech.transcribing ? "停止听写" : "语音输入")
-
-                Button { write() } label: {
-                    Text(parsed.isEmpty ? "写入提醒事项" : "写入提醒事项 · \(parsed.count) 项")
-                        .font(.system(size: 13.5, weight: .medium))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 15)
-                        .background(RoundedRectangle(cornerRadius: 16)
-                            .fill(parsed.isEmpty ? Color(hex: 0xD9D6CE) : Theme.accent))
+        VStack(spacing: 10) {
+            Button { toggleSpeech() } label: {
+                ZStack {
+                    Circle().fill(speech.transcribing ? Theme.danger : Theme.accent)
+                        .frame(width: 54, height: 54)
+                    Image(systemName: speech.transcribing ? "stop.fill" : "mic.fill")
+                        .font(.system(size: 19, weight: .medium))
                         .foregroundColor(.white)
                 }
-                .disabled(parsed.isEmpty)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(speech.transcribing ? "停止听写" : "语音输入")
+
+            Button { write() } label: {
+                Text(parsed.isEmpty ? "写入提醒事项" : "写入提醒事项 · \(parsed.count) 项")
+                    .font(.system(size: 13.5, weight: .medium))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(RoundedRectangle(cornerRadius: 16)
+                        .fill(parsed.isEmpty ? Color(hex: 0xD9D6CE) : Theme.accent))
+                    .foregroundColor(.white)
+            }
+            .disabled(parsed.isEmpty)
+
             Text(hint).font(.system(size: 10.5)).foregroundColor(Theme.muted)
         }
         .padding(.horizontal, 20)
