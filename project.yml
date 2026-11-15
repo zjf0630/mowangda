@@ -36,7 +36,7 @@ targets:
         CODE_SIGN_ENTITLEMENTS: App.entitlements
 
   MoWangDaWidget:
-    type: widgetkit-extension
+    type: app-extension
     platform: iOS
     deploymentTarget: "17.0"
     sources:
