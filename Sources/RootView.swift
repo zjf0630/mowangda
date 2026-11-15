@@ -261,11 +261,16 @@ struct RootView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        // 只保留向左滑：完成 / 重开 + 删除，两个按钮都在右侧
-        // 第一个按钮（最靠边）是"完成"，全面滑动触发的是它——不会误删；
-        // 删除必须点一下，避免手滑把事项划没了。
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+        // 只保留向左滑，两个按钮都在右侧；顺序按要求：完成在左、删除在最右。
+        // 全滑关掉——删除是不可逆的，必须点一下，避免手滑把事项划没了。
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if !selectMode {
+                Button(role: .destructive) {
+                    Task { await store.delete(ids: [item.id]) }
+                } label: {
+                    Label("删除", systemImage: "trash")
+                }
+
                 Button {
                     Task { await store.setDone(item, !item.done) }
                 } label: {
@@ -273,12 +278,6 @@ struct RootView: View {
                           systemImage: item.done ? "arrow.uturn.backward" : "checkmark")
                 }
                 .tint(Theme.accent)
-
-                Button(role: .destructive) {
-                    Task { await store.delete(ids: [item.id]) }
-                } label: {
-                    Label("删除", systemImage: "trash")
-                }
             }
         }
         // 长按：同一组动作，不用记手势方向
