@@ -14,9 +14,7 @@ struct RootView: View {
             Theme.bg.ignoresSafeArea()
             VStack(spacing: 0) {
                 header
-                ScrollView {
-                    listBody
-                }
+                listBody
             }
             bottomBar
         }
@@ -66,57 +64,108 @@ struct RootView: View {
 
     // MARK: - 列表
 
-    private var listBody: some View {
+    /// 把分组头、条目、折叠头拍平成一维行模型。
+    /// 用 List 而不是 ScrollView 的原因：swipeActions（左滑）只对 List 的直接行生效。
+    private enum Row: Identifiable {
+        case section(String, Int, Date?)
+        case task(TodoItem)
+        case doneHead(Int)
+        case empty
+        case tail
+
+        var id: String {
+            switch self {
+            case .section(let n, _, _): return "s-" + n
+            case .task(let t): return "t-" + t.id
+            case .doneHead: return "done-head"
+            case .empty: return "empty"
+            case .tail: return "tail"
+            }
+        }
+    }
+
+    private var rows: [Row] {
         let today = Calendar.current.startOfDay(for: Date())
         let active = store.items.filter { !$0.done }.sorted(by: Self.cmp)
         let done = store.items.filter { $0.done }.sorted(by: Self.cmp)
-        var groups: [(String, [TodoItem])] = []
+        var out: [Row] = []
 
-        var buffer: [TodoItem] = []
-        func flush(_ name: String, _ list: [TodoItem]) {
-            if !list.isEmpty { groups.append((name, list)) }
+        func add(_ name: String, _ list: [TodoItem]) {
+            guard !list.isEmpty else { return }
+            out.append(.section(name, list.count, list.first?.due))
+            list.forEach { out.append(.task($0)) }
         }
-        flush("今天", active.filter { Self.dayDiff($0, today) <= 0 })
-        flush("明天", active.filter { Self.dayDiff($0, today) == 1 })
+        add("今天", active.filter { Self.dayDiff($0, today) <= 0 })
+        add("明天", active.filter { Self.dayDiff($0, today) == 1 })
         let rest = active.filter { Self.dayDiff($0, today) > 1 && $0.due != nil }
-        flush("本周", rest.filter { Self.dayDiff($0, today) < 7 })
-        flush("以后", rest.filter { Self.dayDiff($0, today) >= 7 })
-        buffer = active.filter { $0.due == nil }
-        flush("时间待定", buffer)
+        add("本周", rest.filter { Self.dayDiff($0, today) < 7 })
+        add("以后", rest.filter { Self.dayDiff($0, today) >= 7 })
+        add("时间待定", active.filter { $0.due == nil })
 
-        return VStack(alignment: .leading, spacing: 0) {
-            ForEach(groups, id: \.0) { pair in
-                sectionHeader(pair.0, count: pair.1.count, date: pair.1.first?.due)
-                ForEach(pair.1) { item in row(item) }
-            }
-            if !done.isEmpty {
-                Button {
-                    withAnimation { doneOpen.toggle() }
-                } label: {
-                    HStack {
-                        Text("已完成 · \(done.count) 项").font(.system(size: 11.5, weight: .medium))
-                        Spacer()
-                        Text(doneOpen ? "收起 ▴" : "展开 ▾").font(.system(size: 10.5))
-                    }
-                    .foregroundColor(Theme.muted)
-                    .padding(.horizontal, 22).padding(.top, 18).padding(.bottom, 8)
-                }
-                .buttonStyle(.plain)
-                if doneOpen {
-                    ForEach(done) { item in row(item) }
-                }
-            }
-            if store.items.isEmpty {
-                VStack(spacing: 6) {
-                    Text("还没有事项\n点下面「＋ 记一条」，说一句就行")
-                        .font(.system(size: 12.5)).foregroundColor(Theme.faint)
-                        .multilineTextAlignment(.center).lineSpacing(6)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.top, 60)
-            }
-            Color.clear.frame(height: 110)
+        if !done.isEmpty {
+            out.append(.doneHead(done.count))
+            if doneOpen { done.forEach { out.append(.task($0)) } }
         }
+        if store.items.isEmpty { out.append(.empty) }
+        out.append(.tail)
+        return out
+    }
+
+    private var listBody: some View {
+        List {
+            ForEach(rows) { r in
+                switch r {
+                case .section(let name, let count, let date):
+                    sectionHeader(name, count: count, date: date)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                case .task(let item):
+                    row(item)
+                case .doneHead(let count):
+                    doneHeader(count)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                case .empty:
+                    emptyHint
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                case .tail:
+                    Color.clear.frame(height: 104)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+            }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .environment(\.defaultMinListRowHeight, 0)
+    }
+
+    private func doneHeader(_ count: Int) -> some View {
+        Button {
+            withAnimation { doneOpen.toggle() }
+        } label: {
+            HStack {
+                Text("已完成 · \(count) 项").font(.system(size: 11.5, weight: .medium))
+                Spacer()
+                Text(doneOpen ? "收起 ▴" : "展开 ▾").font(.system(size: 10.5))
+            }
+            .foregroundColor(Theme.muted)
+            .padding(.horizontal, 22).padding(.top, 18).padding(.bottom, 8)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var emptyHint: some View {
+        Text("还没有事项\n点下面「＋ 记一条」，说一句就行")
+            .font(.system(size: 12.5)).foregroundColor(Theme.faint)
+            .multilineTextAlignment(.center).lineSpacing(6)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 60)
     }
 
     private func sectionHeader(_ name: String, count: Int, date: Date?) -> some View {
@@ -138,52 +187,109 @@ struct RootView: View {
 
     private func row(_ item: TodoItem) -> some View {
         let picked = selected.contains(item.id)
-        return HStack(alignment: .top, spacing: 10) {
-            Text(timeText(item))
-                .font(.system(size: 11).monospacedDigit())
-                .foregroundColor(item.hasTime ? Theme.muted : Theme.faint)
-                .frame(width: 42, alignment: .leading).padding(.top, 13)
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(item.title).font(.system(size: 13.5, weight: .medium))
-                        .foregroundColor(item.done ? Theme.faint : Theme.ink)
-                        .strikethrough(item.done)
-                        .lineLimit(2)
-                    Text(subText(item)).font(.system(size: 10.5)).foregroundColor(Theme.muted)
-                }
-                Spacer()
-                if selectMode {
-                    Circle()
-                        .strokeBorder(picked ? Theme.accent : Color(hex: 0xD8D5CD), lineWidth: 1.5)
-                        .background(Circle().fill(picked ? Theme.accent : Color.clear))
-                        .frame(width: 21, height: 21)
-                } else {
-                    ZStack {
-                        Circle().strokeBorder(item.done ? Theme.accent : Color(hex: 0xD8D5CD), lineWidth: 1.5)
-                        if item.done {
-                            Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).foregroundColor(.white)
+        // 优先级配色：整张卡片淡染一层，描边同色加深，左竖条用实色
+        let pc = Theme.priority(item.priority)
+        let fillColor: Color = item.done ? .clear : (pc?.opacity(0.11) ?? Color.white)
+        let strokeColor: Color = item.done ? .clear : (pc?.opacity(0.30) ?? Theme.line)
+        let barColor: Color = item.done ? .clear
+            : (pc ?? (item.deadline ? Theme.amber : (item.due == nil ? Color(hex: 0xDCD9D1) : Theme.accent)))
+
+        return Button { tap(item) } label: {
+            HStack(alignment: .top, spacing: 10) {
+                Text(timeText(item))
+                    .font(.system(size: 11).monospacedDigit())
+                    .foregroundColor(item.hasTime ? Theme.muted : Theme.faint)
+                    .frame(width: 42, alignment: .leading).padding(.top, 13)
+                HStack(spacing: 10) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(item.title).font(.system(size: 13.5, weight: .medium))
+                            .foregroundColor(item.done ? Theme.faint : Theme.ink)
+                            .strikethrough(item.done)
+                            .lineLimit(2)
+                        Text(subText(item)).font(.system(size: 10.5)).foregroundColor(Theme.muted)
+                    }
+                    Spacer()
+                    if selectMode {
+                        Circle()
+                            .strokeBorder(picked ? Theme.accent : Color(hex: 0xD8D5CD), lineWidth: 1.5)
+                            .background(Circle().fill(picked ? Theme.accent : Color.clear))
+                            .frame(width: 21, height: 21)
+                    } else {
+                        ZStack {
+                            Circle()
+                                .fill(item.done ? Theme.accent : Color.clear)
+                                .frame(width: 21, height: 21)
+                            Circle()
+                                .strokeBorder(item.done ? Theme.accent : Color(hex: 0xD8D5CD), lineWidth: 1.5)
+                                .frame(width: 21, height: 21)
+                            if item.done {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundColor(.white)
+                            }
                         }
-                    }.frame(width: 21, height: 21)
+                    }
+                }
+                .padding(11)
+                .background(RoundedRectangle(cornerRadius: 14).fill(fillColor)
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(strokeColor, lineWidth: 1)))
+                .overlay(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(barColor)
+                        .frame(width: 3)
+                        .padding(.vertical, 8)
                 }
             }
-            .padding(11)
-            .background(RoundedRectangle(cornerRadius: 14).fill(item.done ? .clear : Color.white)
-                .overlay(RoundedRectangle(cornerRadius: 14)
-                    .stroke(item.done ? .clear : Theme.line, lineWidth: 1)))
-            .overlay(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(item.done ? .clear : (item.deadline ? Theme.amber : (item.due == nil ? Color(hex: 0xDCD9D1) : Theme.accent)))
-                    .frame(width: 2.5)
+            .padding(.horizontal, 20).padding(.bottom, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        // 左滑：完成 / 重开
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            if !selectMode {
+                Button {
+                    Task { await store.setDone(item, !item.done) }
+                } label: {
+                    Label(item.done ? "重开" : "完成",
+                          systemImage: item.done ? "arrow.uturn.backward" : "checkmark")
+                }
+                .tint(Theme.accent)
             }
         }
-        .padding(.horizontal, 20).padding(.bottom, 8)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if selectMode {
-                if picked { selected.remove(item.id) } else { selected.insert(item.id) }
-            } else {
-                detailItem = item
+        // 右滑（从右侧往左划）：删除
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            if !selectMode {
+                Button(role: .destructive) {
+                    Task { await store.delete(ids: [item.id]) }
+                } label: {
+                    Label("删除", systemImage: "trash")
+                }
             }
+        }
+        // 长按：同一组动作，不用记手势方向
+        .contextMenu {
+            Button {
+                Task { await store.setDone(item, !item.done) }
+            } label: {
+                Label(item.done ? "标记为未完成" : "标记为已完成",
+                      systemImage: item.done ? "arrow.uturn.backward.circle" : "checkmark.circle")
+            }
+            Button(role: .destructive) {
+                Task { await store.delete(ids: [item.id]) }
+            } label: {
+                Label("删除", systemImage: "trash")
+            }
+        }
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+
+    private func tap(_ item: TodoItem) {
+        if selectMode {
+            if selected.contains(item.id) { selected.remove(item.id) } else { selected.insert(item.id) }
+        } else {
+            detailItem = item
         }
     }
 
@@ -250,10 +356,13 @@ struct RootView: View {
     }
 
     private func subText(_ item: TodoItem) -> String {
-        if item.deadline { return item.listName + " · 截止" }
-        if item.due == nil { return item.listName + " · 时间待定" }
-        if !item.hasTime { return item.listName + " · 全天" }
-        return item.listName + (item.remindMinutes > 0 ? " · 提前\(item.remindMinutes)分钟" : " · 不提醒")
+        var s: String
+        if item.deadline { s = item.listName + " · 截止" }
+        else if item.due == nil { s = item.listName + " · 时间待定" }
+        else if !item.hasTime { s = item.listName + " · 全天" }
+        else { s = item.listName + (item.remindMinutes > 0 ? " · 提前\(item.remindMinutes)分钟" : " · 不提醒") }
+        if item.priority > 0 && !item.done { s += " · " + Theme.priorityName(item.priority) }
+        return s
     }
 }
 

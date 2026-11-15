@@ -101,10 +101,16 @@ struct DetailView: View {
             row("优先级") {
                 Menu {
                     ForEach(0..<4, id: \.self) { p in
-                        Button(["无", "低", "中", "高"][p]) { priority = p }
+                        Button(Theme.priorityName(p)) { priority = p }
                     }
                 } label: {
-                    Text(["无", "低", "中", "高"][priority]).font(.system(size: 12.5, weight: .medium))
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(Theme.priority(priority) ?? Color(hex: 0xD8D5CD))
+                            .frame(width: 8, height: 8)
+                        Text(Theme.priorityName(priority))
+                            .font(.system(size: 12.5, weight: .medium))
+                    }
                 }
             }
             divider

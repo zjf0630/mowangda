@@ -13,6 +13,26 @@ enum Theme {
     static let accentSoft = Color(red: 0.882, green: 0.961, blue: 0.933) // E1F5EE
     static let amber = Color(red: 0.729, green: 0.459, blue: 0.090)   // BA7517
     static let danger = Color(red: 0.639, green: 0.176, blue: 0.176)  // A32D2D
+
+    /// 优先级配色：3 高=红、2 中=琥珀、1 低=墨绿、0 无=nil（走白卡）
+    /// 都是低饱和的品牌色，卡片填充只取 0.10 透明度，靠"整片淡淡一层"区分，不抢文字
+    static func priority(_ p: Int) -> Color? {
+        switch p {
+        case 3: return danger
+        case 2: return amber
+        case 1: return accent
+        default: return nil
+        }
+    }
+
+    static func priorityName(_ p: Int) -> String {
+        switch p {
+        case 3: return "高"
+        case 2: return "中"
+        case 1: return "低"
+        default: return "无"
+        }
+    }
 }
 
 /// 数据模型。权威数据在系统「提醒事项」，本地只做缓存。
