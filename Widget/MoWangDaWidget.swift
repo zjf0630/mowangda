@@ -16,13 +16,27 @@ struct Provider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (SnapshotEntry) -> Void) {
-        completion(SnapshotEntry(date: .now, snapshot: WidgetReader.read() ?? Self.sample))
+        Task {
+            let snap = await Self.load()
+            completion(SnapshotEntry(date: .now, snapshot: snap ?? Self.sample))
+        }
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<SnapshotEntry>) -> Void) {
-        let entry = SnapshotEntry(date: .now, snapshot: WidgetReader.read())
-        // 半小时后让系统再要一次新数据；主 App 里的增删改也会主动触发刷新
-        completion(Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(1800))))
+        Task {
+            let snap = await Self.load()
+            let entry = SnapshotEntry(date: .now, snapshot: snap)
+            // 半小时后让系统再来取一次；每次取数据都会重新直读提醒事项库，
+            // 所以只要权限通，数据始终是最新的，不依赖打开 App
+            completion(Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(1800))))
+        }
+    }
+
+    /// 数据源优先级：① 小组件直读系统提醒事项库（不依赖打开 App）
+    /// ② App Group 快照（App 最后一次运行时写的）→ 都没有才显示引导
+    static func load() async -> WidgetSnapshot? {
+        if let live = await LiveReminders.snapshot() { return live }
+        return WidgetReader.read()
     }
 
     // 添加小组件时的预览样例
@@ -167,7 +181,7 @@ struct MoWidgetView: View {
             Text("先打开莫忘哒")
                 .font(.system(size: 11.5, weight: .medium))
                 .foregroundColor(c.ink)
-            Text("打开一次 App，这里就会显示今天的安排")
+            Text("提醒事项权限没连上，打开一次 App 再看")
                 .font(.system(size: 9.5))
                 .foregroundColor(c.muted)
         }
