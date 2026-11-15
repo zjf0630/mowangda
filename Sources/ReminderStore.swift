@@ -24,19 +24,29 @@ final class ReminderStore: ObservableObject {
         } catch {
             authorized = false
         }
-        if authorized { await sync() }
+        if authorized {
+            // 授权前实例化的 EKEventStore 可能持有过期状态，授权后必须 reset 才能读到内容
+            store.reset()
+            await sync()
+        }
     }
 
     func sync() async {
         guard authorized else { return }
-        let calendars = workCalendar().map { [$0] } ?? store.calendars(for: .reminder)
+        // 读取全部提醒事项列表。
+        // 早先这里只读「工作」列表（workCalendar() ?? 全部），导致「工作」一旦被创建，
+        // 其它列表里原本能看到的内容就集体"消失"。现在统一读全部，写入仍进「工作」。
+        let calendars = store.calendars(for: .reminder)
+        guard !calendars.isEmpty else { return }
         let predicate = store.predicateForReminders(in: calendars)
         // EventKit 至今没有 async 版拉取接口，只能用 completion 包一层
-        let reminders: [EKReminder] = await withCheckedContinuation { cont in
+        let fetched: [EKReminder]? = await withCheckedContinuation { cont in
             store.fetchReminders(matching: predicate) { result in
-                cont.resume(returning: result ?? [])
+                cont.resume(returning: result)
             }
         }
+        // 读失败（nil）时保留现有内容，绝不清空
+        guard let reminders = fetched else { return }
 
         items = reminders.map { r in
             let dc = r.dueDateComponents

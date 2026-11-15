@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// 录入页：一句话实时拆条，逐卡可改时间，确认后写入提醒事项。
+/// 布局：顶部导航 → 中间输入框 + 识别卡片 → 底部固定操作条（麦克风 + 写入）
 struct ComposeView: View {
     @ObservedObject var store: ReminderStore
     @Environment(\.dismiss) private var dismiss
@@ -8,21 +9,27 @@ struct ComposeView: View {
     @StateObject private var speech = SpeechController()
     @State private var text = ""
     @State private var parsed: [ParsedItem] = []
-    @State private var saved = false
+    @FocusState private var focused: Bool
 
     var body: some View {
         ZStack {
             Theme.bg.ignoresSafeArea()
             VStack(spacing: 0) {
                 navBar
-                inputBox
-                parseArea
-                Spacer(minLength: 0)
-                writeButton
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        inputBox
+                        parseSection
+                    }
+                }
+                .scrollDismissesKeyboard(.interactively)
+                bottomBar
             }
         }
         .onAppear { parsed = [] }
     }
+
+    // MARK: - 顶部
 
     private var navBar: some View {
         HStack {
@@ -34,56 +41,46 @@ struct ComposeView: View {
             Button("清空") { text = ""; parsed = [] }.foregroundColor(Theme.muted)
         }
         .font(.system(size: 13))
-        .padding(.horizontal, 22).padding(.top, 12)
+        .padding(.horizontal, 22).padding(.top, 12).padding(.bottom, 4)
     }
+
+    // MARK: - 输入框
 
     private var inputBox: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            TextField("明天下午3点跟张总碰方案，周三前把预算表发财务", text: $text, axis: .vertical)
-                .font(.system(size: 15))
-                .lineLimit(1...4)
-                .padding(8)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Color.white))
-                .onChange(of: text) { _, v in reparse(v) }
-            HStack(spacing: 10) {
-                Button {
-                    if speech.transcribing { speech.stop() }
-                    else {
-                        speech.start(onText: { t in text = t },
-                                     onError: { _ in speech.transcribing = false })
-                    }
-                } label: {
-                    Image(systemName: speech.transcribing ? "stop.fill" : "mic.fill")
-                        .font(.system(size: 14)).foregroundColor(.white)
-                        .frame(width: 34, height: 34).background(Circle().fill(speech.transcribing ? Theme.danger : Theme.accent))
-                }
-                Text(speech.transcribing ? "说完自动停" : "点麦克风说话，本机识别")
-                    .font(.system(size: 11)).foregroundColor(Theme.muted)
-                Spacer()
-            }
-        }
-        .padding(14)
-        .background(RoundedRectangle(cornerRadius: 20).fill(Color.white)
-            .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.line, lineWidth: 1)))
-        .padding(.horizontal, 20).padding(.top, 6)
+        TextField("明天下午3点跟张总碰方案，周三前把预算表发财务", text: $text, axis: .vertical)
+            .font(.system(size: 15))
+            .lineLimit(2...6)
+            .focused($focused)
+            .padding(14)
+            .background(RoundedRectangle(cornerRadius: 18).fill(Color.white)
+                .overlay(RoundedRectangle(cornerRadius: 18).stroke(Theme.line, lineWidth: 1)))
+            .onChange(of: text) { _, v in reparse(v) }
+            .padding(.horizontal, 20).padding(.top, 8)
     }
 
-    private var parseArea: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                if !parsed.isEmpty {
-                    HStack(spacing: 8) {
-                        Text("识别到 \(parsed.count) 项").font(.system(size: 11.5, weight: .medium))
-                        Rectangle().fill(Theme.line).frame(height: 1)
-                        Text("可逐条改").font(.system(size: 10.5)).foregroundColor(Theme.faint)
-                    }
-                    .foregroundColor(Theme.muted)
-                    .padding(.horizontal, 20).padding(.top, 18).padding(.bottom, 8)
+    // MARK: - 识别结果
+
+    private var parseSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if !parsed.isEmpty {
+                HStack(spacing: 8) {
+                    Text("识别到 \(parsed.count) 项").font(.system(size: 11.5, weight: .medium))
+                    Rectangle().fill(Theme.line).frame(height: 1)
+                    Text("可逐条改").font(.system(size: 10.5)).foregroundColor(Theme.faint)
                 }
-                ForEach(parsed.indices, id: \.self) { i in
-                    card(i)
-                }
+                .foregroundColor(Theme.muted)
+                .padding(.horizontal, 20).padding(.top, 18).padding(.bottom, 8)
             }
+            ForEach(parsed.indices, id: \.self) { i in
+                card(i)
+            }
+            if parsed.isEmpty {
+                Text("说完或打完，这里会即时拆成带时间的一条条")
+                    .font(.system(size: 12)).foregroundColor(Theme.faint)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 44)
+            }
+            Color.clear.frame(height: 12)
         }
     }
 
@@ -117,31 +114,72 @@ struct ComposeView: View {
         .padding(.horizontal, 20).padding(.bottom, 8)
     }
 
-    private var writeButton: some View {
-        VStack(spacing: 8) {
-            Button {
-                Task {
-                    for p in parsed { await store.add(p) }
-                    saved = true
-                    speech.stop()
-                    dismiss()
+    // MARK: - 底部固定操作条（麦克风在屏幕下方）
+
+    private var bottomBar: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 12) {
+                Button { toggleSpeech() } label: {
+                    ZStack {
+                        Circle().fill(speech.transcribing ? Theme.danger : Theme.accent)
+                            .frame(width: 48, height: 48)
+                        Image(systemName: speech.transcribing ? "stop.fill" : "mic.fill")
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundColor(.white)
+                    }
                 }
-            } label: {
-                Text(parsed.isEmpty ? "写入提醒事项" : "写入提醒事项 · \(parsed.count) 项")
-                    .font(.system(size: 13.5, weight: .medium))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(RoundedRectangle(cornerRadius: 16)
-                        .fill(parsed.isEmpty ? Color(hex: 0xD9D6CE) : Theme.accent))
-                    .foregroundColor(.white)
+                .buttonStyle(.plain)
+                .accessibilityLabel(speech.transcribing ? "停止听写" : "语音输入")
+
+                Button { write() } label: {
+                    Text(parsed.isEmpty ? "写入提醒事项" : "写入提醒事项 · \(parsed.count) 项")
+                        .font(.system(size: 13.5, weight: .medium))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 15)
+                        .background(RoundedRectangle(cornerRadius: 16)
+                            .fill(parsed.isEmpty ? Color(hex: 0xD9D6CE) : Theme.accent))
+                        .foregroundColor(.white)
+                }
+                .disabled(parsed.isEmpty)
             }
-            .disabled(parsed.isEmpty)
-            Text(summary).font(.system(size: 10.5)).foregroundColor(Theme.muted)
+            Text(hint).font(.system(size: 10.5)).foregroundColor(Theme.muted)
         }
-        .padding(.horizontal, 20).padding(.bottom, 18)
+        .padding(.horizontal, 20)
+        .padding(.top, 10)
+        .padding(.bottom, 14)
+        .background(
+            Theme.bg.ignoresSafeArea(edges: .bottom)
+                .overlay(Rectangle().fill(Theme.line).frame(height: 0.5), alignment: .top)
+        )
     }
 
-    // MARK: - 工具
+    private var hint: String {
+        if speech.transcribing { return "正在听… 说完点一下方块停止" }
+        if parsed.isEmpty { return "按麦克风说话，或直接在上面打字" }
+        return "将排入 " + parsed.map { whenText($0) }.joined(separator: "　·　")
+    }
+
+    // MARK: - 动作
+
+    private func toggleSpeech() {
+        if speech.transcribing {
+            speech.stop()
+            return
+        }
+        focused = false
+        speech.start(onText: { t in text = t },
+                     onError: { _ in speech.transcribing = false })
+    }
+
+    private func write() {
+        let list = parsed
+        Task {
+            for p in list { await store.add(p) }
+            speech.stop()
+            await store.sync()      // 回读一次，让列表拿到 EventKit 的真实 id
+            dismiss()
+        }
+    }
 
     private func reparse(_ v: String) {
         parsed = TimeParser.parseAll(v)
@@ -162,10 +200,5 @@ struct ComposeView: View {
             return day + f.string(from: d)
         }
         return day + " 全天"
-    }
-
-    private var summary: String {
-        if parsed.isEmpty { return "写在下面这块，识别结果会即时出现" }
-        return "将排入 " + parsed.map { whenText($0) }.joined(separator: "　·　")
     }
 }

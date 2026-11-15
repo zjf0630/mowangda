@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RootView: View {
     @StateObject private var store = ReminderStore()
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showCompose = false
     @State private var doneOpen = false
     @State private var selectMode = false
@@ -13,7 +14,6 @@ struct RootView: View {
             Theme.bg.ignoresSafeArea()
             VStack(spacing: 0) {
                 header
-                inputCard
                 ScrollView {
                     listBody
                 }
@@ -26,7 +26,10 @@ struct RootView: View {
         }
         .task {
             await store.requestAccess()
-            await store.sync()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // 回到前台时重新读一遍，提醒事项里外部改动能立刻反映出来
+            if phase == .active { Task { await store.sync() } }
         }
     }
 
@@ -59,33 +62,6 @@ struct RootView: View {
         f.locale = Locale(identifier: "zh_CN")
         f.dateFormat = "M月d日 EEE"
         return f.string(from: Date())
-    }
-
-    // MARK: - 输入卡
-
-    private var inputCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("记一行，比如「明早9点跟张总对方案」")
-                .font(.system(size: 13.5)).foregroundColor(Theme.faint)
-            HStack(spacing: 10) {
-                Image(systemName: "mic.fill")
-                    .font(.system(size: 14))
-                    .foregroundColor(.white)
-                    .frame(width: 34, height: 34).background(Circle().fill(Theme.accent))
-                Text("长按说话，松手成条（原型版点输入卡直接录入）")
-                    .font(.system(size: 11)).foregroundColor(Theme.muted)
-                Spacer()
-                Image(systemName: "arrow.up").font(.system(size: 14)).foregroundColor(Theme.faint)
-                    .frame(width: 30, height: 30).background(Circle().fill(Theme.bg))
-            }
-        }
-        .padding(14)
-        .background(RoundedRectangle(cornerRadius: 20).fill(Color.white)
-            .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.line, lineWidth: 1)))
-        .padding(.horizontal, 20)
-        .onTapGesture { showCompose = true }
-        .opacity(selectMode ? 0.55 : 1)
-        .disabled(selectMode)
     }
 
     // MARK: - 列表
