@@ -83,10 +83,14 @@ struct MoWidgetView: View {
     var body: some View {
         let c = MoPalette.palette(scheme == .dark)
         Group {
-            if let snap = entry.snapshot, !snap.items.isEmpty {
-                content(snap, c)
+            if let snap = entry.snapshot {
+                if snap.items.isEmpty {
+                    empty(c)
+                } else {
+                    content(snap, c)
+                }
             } else {
-                empty(c)
+                noData(c)
             }
         }
         .containerBackground(for: .widget) { c.bg }
@@ -138,6 +142,7 @@ struct MoWidgetView: View {
         .padding(.vertical, 2)
     }
 
+    // 读到了快照但今天确实没有安排
     private func empty(_ c: MoPalette) -> some View {
         VStack(spacing: 6) {
             Image(systemName: "checklist")
@@ -147,6 +152,22 @@ struct MoWidgetView: View {
                 .font(.system(size: 11.5, weight: .medium))
                 .foregroundColor(c.ink)
             Text("打开莫忘哒记一条吧")
+                .font(.system(size: 9.5))
+                .foregroundColor(c.muted)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // 连快照都读不到：要么还没打开过 App，要么签名时 App Group 能力被去掉了
+    private func noData(_ c: MoPalette) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundColor(c.accent.opacity(0.6))
+            Text("先打开莫忘哒")
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundColor(c.ink)
+            Text("打开一次 App，这里就会显示今天的安排")
                 .font(.system(size: 9.5))
                 .foregroundColor(c.muted)
         }
