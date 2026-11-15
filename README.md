@@ -16,7 +16,7 @@
 ```
 project.yml                      XcodeGen 工程描述（云编译时用它生成 .xcodeproj）
 Info.plist                       权限说明：提醒事项 / 麦克风 / 语音识别
-Sources/                         10 个 Swift 源文件
+Sources/                         11 个 Swift 源文件
 Resources/Assets.xcassets/       App 图标
 .github/workflows/build-ipa.yml  GitHub Actions 云编译脚本
 ```
@@ -49,8 +49,9 @@ open MoWangDa.xcodeproj
 | Sources/RootView.swift | 主界面：分组时间轴 / 已完成折叠 / 批量选择删除 |
 | Sources/ComposeView.swift | 录入页：实时拆条 + 语音 + 写入 |
 | Sources/DetailView.swift | 详情页：标题/时间/提醒/列表/优先级/截止/备注 |
-| Sources/SettingsView.swift | 设置页：默认提前量 + 铃声/振动说明 |
-| Sources/Preferences.swift | 本地偏好（默认提前分钟数） |
+| Sources/SettingsView.swift | 设置页：默认提前量、字体大小三档 + 铃声/振动说明 |
+| Sources/Preferences.swift | 本地偏好（默认提前分钟数、字体档位） |
+| Sources/WidgetBridge.swift | 把当天条目快照写给桌面小组件 |
 
 ## 与网页原型的差异
 
@@ -58,6 +59,9 @@ open MoWangDa.xcodeproj
 - 提醒真的会响：默认提前 15 分钟（设置页可改成 0/5/15/30/60），由系统提醒事项推送，本 App 不申请通知权限
 - 界面跟随系统深浅色：色板全部是 `UIColor` 动态色，`Info.plist` 不锁定 `UIUserInterfaceStyle`
 - 左滑只有右侧：「完成」在左、「删除」在最右，关闭全滑避免误删；长按有同样菜单
+- 重复提醒：详情页可设「每天 / 工作日」，走 EKRecurrenceRule，系统提醒事项按规则提醒
+- 桌面小组件：WidgetKit 扩展（MoWangDaWidget target），经 App Group `group.com.wuhan.mowangda` 读当天快照；点小组件经 `mowangda://` scheme 回 App
+- 字体大小三档：设置页选档，所有字号经 `Theme.fs()` 统一缩放，`.id(fontLevel)` 触发整树重建
 - 语音是本机识别：`requiresOnDeviceRecognition = true`，不联网不上传
 - 「截止」以备注前缀 `[截止]` 持久化（EventKit 没有该字段）
 - 未授权提醒事项时 App 仍可用，数据走本地缓存，详情页顶部有提示
