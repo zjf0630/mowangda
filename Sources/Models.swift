@@ -103,9 +103,6 @@ struct TodoItem: Identifiable, Codable, Equatable {
         default: return nil
         }
     }
-
-    /// EventKit 里"工作日"对应的星期编号（1 = 周日，周一到周五是 2...6）
-    static let workdayIndexes = [2, 3, 4, 5, 6]
 }
 
 struct ParsedItem {

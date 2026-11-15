@@ -67,7 +67,7 @@ final class ReminderStore: ObservableObject {
                 let days = rule.daysOfTheWeek?.map(\.dayOfTheWeek)
                 switch rule.frequency {
                 case .daily: rep = "daily"
-                case .weekly where days == TodoItem.workdayIndexes: rep = "workday"
+                case .weekly where days == Self.workdays: rep = "workday"
                 default: rep = "custom"
                 }
             } else {
@@ -140,20 +140,23 @@ final class ReminderStore: ObservableObject {
             r.alarms = nil
         }
         r.priority = [0, 9, 5, 1][min(3, max(0, item.priority))]
-        // 重复规则（每天 / 工作日）。注意 EKRecurrenceDayOfWeek 的编号：1 = 周日，周一到周五是 2...6。
+        // 重复规则（每天 / 工作日）。EKWeekday 枚举：.monday ... .friday。
         switch item.repeatRule {
         case "daily":
             r.recurrenceRules = [EKRecurrenceRule(recurrenceWith: .daily, interval: 1, end: nil)]
         case "workday":
             r.recurrenceRules = [EKRecurrenceRule(
                 recurrenceWith: .weekly, interval: 1,
-                daysOfTheWeek: TodoItem.workdayIndexes.map { EKRecurrenceDayOfWeek($0) },
+                daysOfTheWeek: Self.workdays.map { EKRecurrenceDayOfWeek($0) },
                 end: nil)]
         default:
             r.recurrenceRules = nil
         }
         try? store.save(r, commit: true)
     }
+
+    /// 工作日 = 周一到周五
+    private static let workdays: [EKWeekday] = [.monday, .tuesday, .wednesday, .thursday, .friday]
 
     func setDone(_ item: TodoItem, _ done: Bool) async {
         var v = item
