@@ -62,6 +62,9 @@ open MoWangDa.xcodeproj
 - 重复提醒：详情页可设「每天 / 工作日」，走 EKRecurrenceRule，系统提醒事项按规则提醒
 - 桌面小组件：WidgetKit 扩展（MoWangDaWidget target），经 App Group `group.com.wuhan.mowangda` 读当天快照；点小组件经 `mowangda://` scheme 回 App
 - 字体大小三档：设置页选档，所有字号经 `Theme.fs()` 统一缩放，`.id(fontLevel)` 触发整树重建
+- 截止过期自动完成：`ReminderStore.autoCompleteExpiredDeadlines()`（sync 末尾 / 回前台 / 前台 5 分钟定时器），
+  只处理勾了「截止」且非重复的条目；全天截止按当天 23:59:59 比较；手动重开过的记白名单不再自动划掉
+- 已完成显示「原定日期 · 完成于哪天几点」：模型新增 `completedAt`（读 EventKit 的 `completionDate`，写回时自己 set），已完成按完成时间倒序
 - 语音是本机识别：`requiresOnDeviceRecognition = true`，不联网不上传
 - 「截止」以备注前缀 `[截止]` 持久化（EventKit 没有该字段）
 - 未授权提醒事项时 App 仍可用，数据走本地缓存，详情页顶部有提示
