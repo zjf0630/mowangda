@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 struct RootView: View {
     @StateObject private var store = ReminderStore()
@@ -34,6 +35,10 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             // 回到前台时重新读一遍，提醒事项里外部改动能立刻反映出来
             if phase == .active { Task { await store.sync() } }
+        }
+        // 前台停留时也每 5 分钟看一眼：截止时间可能在 App 开着的时候过去
+        .onReceive(Timer.publish(every: 300, on: .main, in: .common).autoconnect()) { _ in
+            Task { await store.autoCompleteExpiredDeadlines() }
         }
     }
 
@@ -106,7 +111,8 @@ struct RootView: View {
     private var rows: [Row] {
         let today = Calendar.current.startOfDay(for: Date())
         let active = store.items.filter { !$0.done }.sorted(by: Self.cmp)
-        let done = store.items.filter { $0.done }.sorted(by: Self.cmp)
+        // 已完成按「完成时间」倒序：刚划掉的排最前，不用往下翻
+        let done = store.items.filter { $0.done }.sorted(by: Self.cmpDone)
         var out: [Row] = []
 
         func add(_ name: String, _ list: [TodoItem]) {
@@ -356,6 +362,34 @@ struct RootView: View {
         return Calendar.current.dateComponents([.day], from: today, to: Calendar.current.startOfDay(for: d)).day ?? 999
     }
 
+    /// 已完成排序：完成时间新的在前；没有完成时间的退回到按 due 倒序
+    private static func cmpDone(_ a: TodoItem, _ b: TodoItem) -> Bool {
+        let x = a.completedAt ?? a.due ?? .distantPast
+        let y = b.completedAt ?? b.due ?? .distantPast
+        return x > y
+    }
+
+    private static let shortDay: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "zh_CN")
+        f.dateFormat = "M月d日 EEE"
+        return f
+    }()
+
+    private static let momentShort: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "zh_CN")
+        f.dateFormat = "M月d日 HH:mm"
+        return f
+    }()
+
+    private static let momentFull: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "zh_CN")
+        f.dateFormat = "yyyy年M月d日 HH:mm"
+        return f
+    }()
+
     private static func cmp(_ a: TodoItem, _ b: TodoItem) -> Bool {
         switch (a.due, b.due) {
         case (nil, nil): return false
@@ -374,6 +408,28 @@ struct RootView: View {
     }
 
     private func subText(_ item: TodoItem) -> String {
+        // 已完成的条目：不许再点进去才知道是哪天。
+        // 一行说清「原定哪天」和「哪天完成的」，截止类的还标一下是不是过期后才划掉的。
+        if item.done {
+            var s: String
+            if let due = item.due {
+                s = Self.shortDay.string(from: due)
+                if !item.hasTime { s += " · 全天" }
+            } else {
+                s = "时间待定"
+            }
+            if let c = item.completedAt {
+                let sameYear = Calendar.current.component(.year, from: c) == Calendar.current.component(.year, from: Date())
+                s += " · 完成于 " + (sameYear ? Self.momentShort.string(from: c) : Self.momentFull.string(from: c))
+                if item.deadline, let due = item.due {
+                    let limit = item.hasTime ? due
+                        : Calendar.current.date(byAdding: DateComponents(day: 1, second: -1),
+                                                to: Calendar.current.startOfDay(for: due)) ?? due
+                    if c > limit { s += " · 截止过期" }
+                }
+            }
+            return s
+        }
         var s: String
         if item.deadline { s = item.listName + " · 截止" }
         else if item.due == nil { s = item.listName + " · 时间待定" }

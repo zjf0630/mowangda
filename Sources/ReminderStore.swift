@@ -84,11 +84,15 @@ final class ReminderStore: ObservableObject {
                 note: note.replacingOccurrences(of: deadlineMark, with: ""),
                 priority: pri,
                 done: r.isCompleted,
-                repeatRule: rep
+                repeatRule: rep,
+                completedAt: r.completionDate
             )
         }
         lastSync = Date()
         saveCache()
+        // 读完之后检查有没有过了截止时间还挂着的条目（只在 App 活着的时候能做，
+        // iOS 不允许第三方 App 在后台定时跑代码）
+        await autoCompleteExpiredDeadlines()
     }
 
     // MARK: - 增删改
@@ -162,11 +166,50 @@ final class ReminderStore: ObservableObject {
     func setDone(_ item: TodoItem, _ done: Bool) async {
         var v = item
         v.done = done
-        if let i = items.firstIndex(where: { $0.id == item.id }) { items[i].done = done }
+        v.completedAt = done ? (item.completedAt ?? Date()) : nil
+        if let i = items.firstIndex(where: { $0.id == item.id }) { items[i] = v }
         saveCache()
         guard authorized, let r = store.calendarItem(withIdentifier: item.id) as? EKReminder else { return }
+        // completionDate 要自己写：只把 isCompleted 置 true 时，系统不保证给出完成时间，
+        // 那样已完成列表里就没有「完成于」可显示。
+        r.completionDate = v.completedAt
         r.isCompleted = done
         try? store.save(r, commit: true)
+    }
+
+    // MARK: - 截止过期自动完成
+
+    private let autoDoneKey = "mowangda.autoDone.v1"
+
+    /// 过了截止时间还没完成的条目，自动转到已完成。
+    /// 三条边界：
+    ///   ① 只认「截止」类（详情页勾了截止），普通带时间的条目过期不自动完成；
+    ///   ② 重复条目跳过——完成一条重复提醒会打断重复链，交给用户自己点；
+    ///   ③ 用户手动「重开」过的条目不再自动完成，否则会被立刻又划掉（记在 autoDoneKey）。
+    func autoCompleteExpiredDeadlines() async {
+        guard authorized else { return }
+        let now = Date()
+        var already = Set(UserDefaults.standard.stringArray(forKey: autoDoneKey) ?? [])
+        let expired = items.filter { item in
+            guard !item.done, item.deadline, item.repeatRule == nil, let due = item.due else { return false }
+            guard !already.contains(item.id) else { return false }
+            return Self.deadlineMoment(item, due: due) < now
+        }
+        guard !expired.isEmpty else { return }
+        for item in expired {
+            already.insert(item.id)
+            await setDone(item, true)
+        }
+        UserDefaults.standard.set(Array(already), forKey: autoDoneKey)
+    }
+
+    /// 截止时刻：有时间就用那个具体时刻；全天事项算到当天 23:59:59，
+    /// 否则它会在当天 0 点就被判成过期、刚记下就自己划掉了。
+    private static func deadlineMoment(_ item: TodoItem, due: Date) -> Date {
+        if item.hasTime { return due }
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: due)
+        return cal.date(byAdding: DateComponents(day: 1, second: -1), to: start) ?? start
     }
 
     func delete(ids: Set<String>) async {

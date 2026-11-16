@@ -91,6 +91,9 @@ struct TodoItem: Identifiable, Codable, Equatable {
     var priority: Int           // 0 无 1 低 2 中 3 高
     var done: Bool
     var repeatRule: String?     // nil/"" = 不重复；"daily" = 每天；"workday" = 工作日；"custom" = 其他重复
+    /// 完成时间（EventKit 的 completionDate）。已完成列表里要显示「完成于哪天」。
+    /// 可选是为了兼容旧缓存：旧数据没有这个字段，解出来是 nil。
+    var completedAt: Date? = nil
 
     var deadlineMark: String { deadline ? "[截止]" : "" }
     var storedNote: String { deadlineMark + note }
