@@ -35,7 +35,7 @@ struct ComposeView: View {
         HStack {
             Button("取消") { speech.stop(); dismiss() }
             Spacer()
-            Text(speech.transcribing ? "正在听…" : "说一句，或打一行")
+            Text(speech.transcribing ? "正在听…" : "几句话几段话，都只记一件事")
                 .font(.system(size: Theme.fs(12))).foregroundColor(Theme.muted)
             Spacer()
             Button("清空") { text = ""; parsed = [] }.foregroundColor(Theme.muted)
@@ -47,9 +47,9 @@ struct ComposeView: View {
     // MARK: - 输入框
 
     private var inputBox: some View {
-        TextField("一段话记一件事，比如：明天上午9点半到公司取快递，顺便买早餐，周三前把预算表发给财务", text: $text, axis: .vertical)
+        TextField("几句话、几段话都行，只记一件事。比如：明天上午9点半到公司取快递，取完顺便把充电器带给张姐，快递到了会给我发短信", text: $text, axis: .vertical)
             .font(.system(size: Theme.fs(15)))
-            .lineLimit(2...8)
+            .lineLimit(2...10)
             .focused($focused)
             .padding(14)
             .background(RoundedRectangle(cornerRadius: 18).fill(Theme.card)
@@ -157,7 +157,7 @@ struct ComposeView: View {
 
     private var hint: String {
         if speech.transcribing { return "正在听… 说完点一下方块停止" }
-        if parsed.isEmpty { return "按麦克风说话，或直接打字；一段话只记一件事" }
+        if parsed.isEmpty { return "按麦克风说话，或直接打字；几句话几段话都行，只记一件事" }
         return "排入 " + parsed.map { whenText($0) }.joined(separator: "　·　") + "，原文进详情"
     }
 
