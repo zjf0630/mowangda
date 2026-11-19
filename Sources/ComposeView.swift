@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 录入页：一句话实时拆条，逐卡可改时间，确认后写入提醒事项。
+/// 录入页：一段话记一件事——自动提炼主题当标题，整段原文存进详情备注，不再拆成多条。
 /// 布局：顶部导航 → 中间输入框 + 识别卡片 → 底部固定操作条（麦克风在上，写入按钮在下）
 struct ComposeView: View {
     @ObservedObject var store: ReminderStore
@@ -47,9 +47,9 @@ struct ComposeView: View {
     // MARK: - 输入框
 
     private var inputBox: some View {
-        TextField("明天下午3点跟张总碰方案，周三前把预算表发财务", text: $text, axis: .vertical)
+        TextField("一段话记一件事，比如：明天上午9点半到公司取快递，顺便买早餐，周三前把预算表发给财务", text: $text, axis: .vertical)
             .font(.system(size: Theme.fs(15)))
-            .lineLimit(2...6)
+            .lineLimit(2...8)
             .focused($focused)
             .padding(14)
             .background(RoundedRectangle(cornerRadius: 18).fill(Theme.card)
@@ -64,9 +64,9 @@ struct ComposeView: View {
         VStack(alignment: .leading, spacing: 0) {
             if !parsed.isEmpty {
                 HStack(spacing: 8) {
-                    Text("识别到 \(parsed.count) 项").font(.system(size: Theme.fs(11.5), weight: .medium))
+                    Text("提炼为 1 条提醒").font(.system(size: Theme.fs(11.5), weight: .medium))
                     Rectangle().fill(Theme.line).frame(height: 1)
-                    Text("可逐条改").font(.system(size: Theme.fs(10.5))).foregroundColor(Theme.faint)
+                    Text("原文保留在详情").font(.system(size: Theme.fs(10.5))).foregroundColor(Theme.faint)
                 }
                 .foregroundColor(Theme.muted)
                 .padding(.horizontal, 20).padding(.top, 18).padding(.bottom, 8)
@@ -75,7 +75,7 @@ struct ComposeView: View {
                 card(i)
             }
             if parsed.isEmpty {
-                Text("说完或打完，这里会即时拆成带时间的一条条")
+                Text("说完或打完，这里会提炼出这条提醒的主题和时间")
                     .font(.system(size: Theme.fs(12))).foregroundColor(Theme.faint)
                     .frame(maxWidth: .infinity)
                     .padding(.top, 44)
@@ -107,6 +107,9 @@ struct ComposeView: View {
                     .foregroundColor(Theme.muted)
                 Spacer()
             }
+            Text("整段原文会存进这条的详情备注")
+                .font(.system(size: Theme.fs(10)))
+                .foregroundColor(Theme.faint)
         }
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 16).fill(Theme.card)
@@ -131,7 +134,7 @@ struct ComposeView: View {
             .accessibilityLabel(speech.transcribing ? "停止听写" : "语音输入")
 
             Button { write() } label: {
-                Text(parsed.isEmpty ? "写入提醒事项" : "写入提醒事项 · \(parsed.count) 项")
+                Text("写入提醒事项")
                     .font(.system(size: Theme.fs(13.5), weight: .medium))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)
@@ -154,8 +157,8 @@ struct ComposeView: View {
 
     private var hint: String {
         if speech.transcribing { return "正在听… 说完点一下方块停止" }
-        if parsed.isEmpty { return "按麦克风说话，或直接在上面打字" }
-        return "将排入 " + parsed.map { whenText($0) }.joined(separator: "　·　")
+        if parsed.isEmpty { return "按麦克风说话，或直接打字；一段话只记一件事" }
+        return "排入 " + parsed.map { whenText($0) }.joined(separator: "　·　") + "，原文进详情"
     }
 
     // MARK: - 动作
@@ -181,7 +184,7 @@ struct ComposeView: View {
     }
 
     private func reparse(_ v: String) {
-        parsed = TimeParser.parseAll(v)
+        parsed = TimeParser.parseSingle(v).map { [$0] } ?? []
     }
 
     private func whenText(_ p: ParsedItem) -> String {

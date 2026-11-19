@@ -114,4 +114,6 @@ struct ParsedItem {
     var hasTime: Bool
     var deadline: Bool
     var listName: String = "工作"
+    /// 原文。录入页把整段话存进来，写入时进详情备注，主题只是标题。
+    var note: String = ""
 }

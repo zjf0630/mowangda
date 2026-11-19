@@ -100,7 +100,7 @@ final class ReminderStore: ObservableObject {
     func add(_ p: ParsedItem) async {
         var item = TodoItem(id: UUID().uuidString, title: p.title, due: p.due, hasTime: p.hasTime,
                             deadline: p.deadline, listName: p.listName,
-                            remindMinutes: p.hasTime ? Prefs.leadMinutes : 0, note: "", priority: 0, done: false,
+                            remindMinutes: p.hasTime ? Prefs.leadMinutes : 0, note: p.note, priority: 0, done: false,
                             repeatRule: nil)
         if authorized, let cal = ensureCalendar() {
             let r = EKReminder(eventStore: store)

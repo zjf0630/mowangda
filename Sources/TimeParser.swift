@@ -47,7 +47,8 @@ enum TimeParser {
     // MARK: - 单句解析
 
     private static func parseOne(_ raw: String, base: Date, inheritPeriod: Int?)
-        -> (title: String, due: Date?, hasTime: Bool, deadline: Bool, inferred: Bool, period: Int?) {
+        -> (title: String, due: Date?, hasTime: Bool, deadline: Bool,
+            inferred: Bool, period: Int?, consumed: [String]) {
 
         let cal = Calendar.current
         let today = cal.startOfDay(for: base)
@@ -180,18 +181,13 @@ enum TimeParser {
             }
         }
 
-        // 标题
+        // 标题：去掉匹配到的时间词，再做一轮清理
         var title = raw.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespaces)
         for c in consumed where !c.isEmpty {
             title = title.replacingOccurrences(of: c, with: "")
         }
-        title = title
-            .replacingOccurrences(of: "^(然后|另外|再|顺便|记得|帮我)\\s*", with: "", options: .regularExpression)
-            .replacingOccurrences(of: "^之?前(?![台面边后])", with: "", options: .regularExpression)
-            .trimmingCharacters(in: CharacterSet(charactersIn: "，,、。；;：: "))
-            .replacingOccurrences(of: "之?前$", with: "", options: .regularExpression)
-            .replacingOccurrences(of: "\\s{2,}", with: " ", options: .regularExpression)
+        title = polish(title)
         if title.isEmpty { title = raw.trimmingCharacters(in: .whitespaces) }
 
         // 时间落位
@@ -217,7 +213,53 @@ enum TimeParser {
             finalDue = fd
             inferred = true
         }
-        return (title, finalDue, hasTime, deadline, inferred, explicitPeriod ? period : nil)
+        return (title, finalDue, hasTime, deadline, inferred, explicitPeriod ? period : nil, consumed)
+    }
+
+    // MARK: - 单条模式（一段话 → 一条提醒）
+
+    /// 一段话只出一条提醒：主题自动提炼成标题，整段原文放进备注（详情页可见可改）。
+    /// 时间照常解析——时间词出现在哪一句都行，扫描整段。
+    /// 主题取法：第一小句（到第一个标点/换行为止）抠掉时间词；
+    /// 第一句被时间词占满就顺延到下一句；都抠空了才用整段清理后的结果。超过 20 字截断。
+    static func parseSingle(_ text: String, base: Date = Date()) -> ParsedItem? {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty else { return nil }
+
+        let full = parseOne(t, base: base, inheritPeriod: nil)
+
+        let clauses = t
+            .split(whereSeparator: { "，。；,;！？!?\n：:".contains($0) })
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+
+        var subject = ""
+        for clause in clauses {
+            var cand = clause
+            for c in full.consumed where !c.isEmpty { cand = cand.replacingOccurrences(of: c, with: "") }
+            cand = polish(cand)
+            if !cand.isEmpty { subject = cand; break }
+        }
+        if subject.isEmpty {
+            subject = polish(t)
+            if subject.isEmpty { subject = clauses.first ?? t }
+        }
+        if subject.count > 20 {
+            subject = String(subject.prefix(20)) + "…"
+        }
+
+        return ParsedItem(title: subject, due: full.due, hasTime: full.hasTime,
+                          deadline: full.deadline, listName: "工作", note: t)
+    }
+
+    /// 标题清理：去句首连接词与孤立的「前」，修剪标点空格
+    private static func polish(_ s: String) -> String {
+        s
+            .replacingOccurrences(of: "^(然后|另外|再|顺便|记得|帮我|请|麻烦|帮忙)\\s*", with: "", options: .regularExpression)
+            .replacingOccurrences(of: "^之?前(?![台面边后])", with: "", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "，,、。；;：: "))
+            .replacingOccurrences(of: "之?前$", with: "", options: .regularExpression)
+            .replacingOccurrences(of: "\\s{2,}", with: " ", options: .regularExpression)
     }
 
     // MARK: - 工具
