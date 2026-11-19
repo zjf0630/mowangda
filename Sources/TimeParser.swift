@@ -219,9 +219,9 @@ enum TimeParser {
     // MARK: - 单条模式（一段话 → 一条提醒）
 
     /// 一段话只出一条提醒：主题自动提炼成标题，整段原文放进备注（详情页可见可改）。
-    /// 时间照常解析——时间词出现在哪一句都行，扫描整段。
-    /// 主题取法：第一小句（到第一个标点/换行为止）抠掉时间词；
-    /// 第一句被时间词占满就顺延到下一句；都抠空了才用整段清理后的结果。超过 20 字截断。
+    /// 标题组成 = 时间词 + 地点/动作，如「明天上午9点半到公司取快递」「周三前把预算表发给财务」。
+    /// 取句规则：优先选「带时间词且抠完时间还剩内容」的那句；纯时间的小句攒起来
+    /// 拼到后面有内容的句子前面；都没有就退回第一句有内容的。超过 24 字截断。
     static func parseSingle(_ text: String, base: Date = Date()) -> ParsedItem? {
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !t.isEmpty else { return nil }
@@ -233,22 +233,74 @@ enum TimeParser {
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
 
-        var subject = ""
-        for clause in clauses {
+        // 句子里按出现顺序抽出的时间词
+        func hitsIn(_ clause: String) -> [String] {
+            var hits: [(Int, String)] = []
+            var work = clause
+            for c in full.consumed where !c.isEmpty {
+                if let r = work.range(of: c) {
+                    hits.append((work.distance(from: work.startIndex, to: r.lowerBound), c))
+                    work = work.replacingOccurrences(of: c, with: "")
+                }
+            }
+            return hits.sorted { $0.0 < $1.0 }.map { $0.1 }
+        }
+
+        // 抠掉时间词并清理后的剩余内容
+        func remainder(_ clause: String) -> String {
             var cand = clause
             for c in full.consumed where !c.isEmpty { cand = cand.replacingOccurrences(of: c, with: "") }
-            cand = polish(cand)
-            if !cand.isEmpty { subject = cand; break }
+            return polish(cand)
         }
+
+        // 时间词后紧跟「之前/以前/前」时，把「前」补进时间前缀（polish 会吃掉它）
+        func qian(_ clause: String, after last: String?) -> String {
+            guard let last, let r = clause.range(of: last) else { return "" }
+            let a = String(clause[r.upperBound...])
+            if a.hasPrefix("前") { return "前" }
+            if a.hasPrefix("之前") || a.hasPrefix("以前") { return "前" }
+            return ""
+        }
+
+        var subject = ""
+        var prefix = ""
+        var pending = ""   // 纯时间小句攒下来的时间词
+
+        // 第一轮：优先选「有时间词 + 有内容」的句子当主题
+        for clause in clauses {
+            let hits = hitsIn(clause)
+            let rest = remainder(clause)
+            if !hits.isEmpty && !rest.isEmpty {
+                prefix = pending + hits.joined() + qian(clause, after: hits.last)
+                subject = rest
+                break
+            }
+            if !hits.isEmpty { pending += hits.joined() }
+        }
+
+        // 第二轮：没有带时间的句子，取第一句有内容的，把攒下的时间词拼前面
+        if subject.isEmpty {
+            for clause in clauses {
+                let rest = remainder(clause)
+                if !rest.isEmpty {
+                    subject = rest
+                    prefix = pending
+                    break
+                }
+            }
+        }
+
         if subject.isEmpty {
             subject = polish(t)
             if subject.isEmpty { subject = clauses.first ?? t }
         }
-        if subject.count > 20 {
-            subject = String(subject.prefix(20)) + "…"
+
+        var title = prefix + subject
+        if title.count > 24 {
+            title = String(title.prefix(24)) + "…"
         }
 
-        return ParsedItem(title: subject, due: full.due, hasTime: full.hasTime,
+        return ParsedItem(title: title, due: full.due, hasTime: full.hasTime,
                           deadline: full.deadline, listName: "工作", note: t)
     }
 
